@@ -1,0 +1,49 @@
+Num elements: 101093
+Data categories: answers passages query query_id query_type wellFormedAnswers
+Query types: DESCRIPTION NUMERIC ENTITY PERSON LOCATION
+Sample:
+DESCRIPTION
+    Query: . what is a corporation?
+    Answers: A corporation is a company or group of people authorized to act as a single entity and 
+             recognized as such in law.
+    Well formed answers: 
+    Passages:
+        McDonald's Corporation is one of the most recognizable corporations in the world. A corporat
+        ion is a company or group of people authorized to act as a single entity (legally a person) 
+        and recognized as such in law. Early incorporated entities were established by charter (i.e.
+         by an ad hoc act granted by a monarch or passed by a parliament or legislature).
+        URL: https://en.wikipedia.org/wiki/Corporation
+
+
+NUMERIC
+    Query: do owls eat in the day
+    Answers: 
+    Well formed answers: 
+    Passages:
+
+ENTITY
+    Query: symptoms of a dying mouse
+    Answers: The symptoms of a dying mouse are runny eyes, sneezing, wheezing, shaking, fluctuating 
+             body temperature, tiredness, loss of appetite, and dull coat.
+    Well formed answers: 
+    Passages:
+        The symptoms are similar but the mouse will be in much worse condition: runny eyes; sneezing
+        ; wheezing; shaking; fluctuating body temperature; tiredness; loss of appetite; dull coat; I
+        f these symptoms persist or worsen, or the mouse becomes limp and struggles to walk, then th
+        e mouse must go to the vet's or it could die. To prevent influenza, do not touch your pet if
+         you have flu, as mice catch it from humans.
+        URL: https://pethelpful.com/rodents/How-to-spot-a-sick-Mouse
+
+
+PERSON
+    Query: bret who wrote roaring camp
+    Answers: 
+    Well formed answers: 
+    Passages:
+
+LOCATION
+    Query: countries frequently use geothermal energy
+    Answers: 
+    Well formed answers: 
+    Passages:
+

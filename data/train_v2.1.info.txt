@@ -1,0 +1,55 @@
+Num elements: 808731
+Data categories: answers passages query query_id query_type wellFormedAnswers
+Query types: DESCRIPTION LOCATION NUMERIC ENTITY PERSON
+Sample:
+DESCRIPTION
+    Query: )what was the immediate impact of the success of the manhattan project?
+    Answers: The immediate impact of the success of the manhattan project was the only cloud hanging
+              over the impressive achievement of the atomic researchers and engineers is what their 
+             success truly meant; hundreds of thousands of innocent lives obliterated.
+    Well formed answers: 
+    Passages:
+        The presence of communication amid scientific minds was equally important to the success of 
+        the Manhattan Project as scientific intellect was. The only cloud hanging over the impressiv
+        e achievement of the atomic researchers and engineers is what their success truly meant; hun
+        dreds of thousands of innocent lives obliterated.
+        URL: http://www.pitt.edu/~sdb14/atombomb.html
+
+
+LOCATION
+    Query: is the atlanta airport the busiest in the world
+    Answers: 
+    Well formed answers: 
+    Passages:
+
+NUMERIC
+    Query: nyu tuition cost
+    Answers: $43,746 for the 2014-2015 academic year.
+    Well formed answers: 
+    Passages:
+        tuition for new york university is $ 43746 for the 2014 2015 academic year this is 73 % more
+         expensive than the national average private non profit four year college tuition of $ 25240
+        he net out of pocket total cost you end up paying or financing though student loans is known
+         as the net price the reported new york university net price for in state students $ 34268 f
+        or the 2013 2014 academic year this net price includes housing and meal expenses
+        URL: http://www.collegecalc.org/colleges/new-york/new-york-university/
+
+
+ENTITY
+    Query: what is early bird check in southwest
+    Answers: It allows passengers to check-in to a flight automatically up to 36 hours prior to the 
+             flight's scheduled departure time.
+    Well formed answers: 
+    Passages:
+        For a small fee, Southwest Airlines' Early Bird Check-In allows passengers to check-in to a 
+        flight automatically up to 36 hours prior to the flight's scheduled departure time.
+        URL: https://www.reference.com/geography/benefits-southwest-early-bird-check-273812a238a5398
+             f
+
+
+PERSON
+    Query: was the president of morehouse college recently fired
+    Answers: 
+    Well formed answers: 
+    Passages:
+

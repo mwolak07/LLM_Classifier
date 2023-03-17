@@ -127,3 +127,11 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Pycharm
+.idea
+
+# Dataset files
+data/eval_v2.1_public.json
+data/dev_v2.1.json
+data/train_v2.1.json

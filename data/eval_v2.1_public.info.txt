@@ -1,0 +1,47 @@
+Num elements: 101092
+Data categories: passages query query_id query_type
+Query types: ENTITY DESCRIPTION NUMERIC LOCATION PERSON
+Sample:
+ENTITY
+    Query: #ffffff color code
+    Passage:
+        Color hex is a easy to use tool to get the color codes information including color models (R
+        GB,HSL,HSV and CMYK), css and html color codes.
+        URL: http://www.color-hex.com/
+
+DESCRIPTION
+    Query: why did qbe stock drop?
+    Passage:
+        Why Visa Stock Is Dropping Today Visa stock is dropping today due to a court ruling regardin
+        g a $5.7 billion settlement deal that is being rejected by New York appeals court. Both Mast
+        erCard (MA) and Visa (V) stocks are dropping today on the news that new litigation is proble
+        m the next step in their ongoing battle with retailers over allegations that their credit-ca
+        rd fees were improperly fixed.
+        URL: https://www.fullyinformed.com/why-visa-stock-v-is-dropping-today-and-how-to-profit-from
+             -it/
+
+NUMERIC
+    Query: distance between erie in buffalo new york
+    Passage:
+        Erie Canal Distance Tables The Erie Canal is the longest canal section in the New York State
+         Canal System. Beginning at lock #E-2 in Waterford, NY, the Erie Canal runs 293 NM (337 SM o
+        r 543 KM) to the Niagara River at Tonawanda, NY and from there onto Buffalo, NY and Lake Eri
+        e via the Black Rock Canal.
+        URL: http://www.offshoreblue.com/cruising/erie-canal-distances.php
+
+LOCATION
+    Query: columbus ne in what county
+    Passage:
+        Platte County, Nebraska Public Records Directory - Quickly find public record sources in the
+         largest human edited public record directory. Find property records, vital records, inmate 
+        and court records, professional and business licenses, contractor licenses and much more.
+        URL: http://publicrecords.onlinesearches.com/NE_Platte.htm
+
+PERSON
+    Query: Antoynm of loyal in English
+    Passage:
+        The words legacy (Late Middle English), legal (Late Middle English), legitimate (Late Middle
+         English), and loyal (early 16th century) all descend from Latin lex ‘law’, the source also 
+        of law. The phrase law and order is found from the late 16th century.
+        URL: http://www.oxforddictionaries.com/definition/english/loyal
+

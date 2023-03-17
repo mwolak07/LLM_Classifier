@@ -1,0 +1,7 @@
+Empty answers: 45438 / 101093 = 45%
+10 most frequent characters: 'e', 'a', 't', 'i', 'o', 'n', 's', 'r', 'l', 'h'
+Overall word length: 5.00 letters
+Overall sentance length: 41.72 words
+Letters per response: 91.91 letters
+Words per response: 15.47 words
+Sentaces per response: 2.2 sentances
