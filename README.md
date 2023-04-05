@@ -1,4 +1,4 @@
-Citations:
+Refences:
 @software{gpt-neox-library,
   title = {{GPT-NeoX: Large Scale Autoregressive Language Modeling in PyTorch}},
   author = {Andonian, Alex and Anthony, Quentin and Biderman, Stella and Black, Sid and Gali, Preetham and Gao, Leo and Hallahan, Eric and Levy-Kramer, Josh and Leahy, Connor and Nestler, Lucas and Parker, Kip and Pieler, Michael and Purohit, Shivanshu and Songz, Tri and Phil, Wang and Weinbach, Samuel},
@@ -15,4 +15,11 @@ Citations:
   booktitle={Proceedings of the ACL Workshop on Challenges \& Perspectives in Creating Large Language Models},
   url={https://arxiv.org/abs/2204.06745},
   year={2022}
+}
+
+@inproceedings{mikolov2018advances,
+  title={Advances in Pre-Training Distributed Word Representations},
+  author={Mikolov, Tomas and Grave, Edouard and Bojanowski, Piotr and Puhrsch, Christian and Joulin, Armand},
+  booktitle={Proceedings of the International Conference on Language Resources and Evaluation (LREC 2018)},
+  year={2018}
 }
