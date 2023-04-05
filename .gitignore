@@ -132,6 +132,8 @@ dmypy.json
 .idea
 
 # Dataset files
-data/eval_v2.1_public.json
-data/dev_v2.1.json
-data/train_v2.1.json
+data/MS_MARCO
+data/gpt-neox_20B_checkpoints
+data/classifier-gpt-neox
+20B_checkpoints
+
