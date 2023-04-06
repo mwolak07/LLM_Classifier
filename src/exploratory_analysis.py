@@ -1,167 +1,287 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from matplotlib import pyplot as plt
+from src import MSMarcoDataset
 import seaborn as sns
 import pandas as pd
-import numpy as np
 import random
 import json
+import sys
 
 
 """
-This file is for exploratory analysis of the MS MARCO dataset, with various techniques.
+This section is for summarizing basic info about each of the JSON files for the MS MARCO dataset.
 """
 
 
-class DataInterface:
+def crop_line_to_str(line, line_n, tab_n):
     """
-    Responsible for providing an easy-to-use interface for the MS MARCO question-answer dataset.
+    Crops the line to the given line length, adding new lines where necessary, along with the correct indent.
     """
+    line_len = line_n - tab_n
+    tab = ' ' * tab_n
+    # Account for empty string.
+    if len(line) == 0:
+        return tab + '\n'
+    # Crop long lines.
+    new_lines = []
+    i = 0
+    j = min(line_len, len(line))
+    while i != j:
+        new_lines.append(line[i: j])
+        i = j
+        j = min(j + line_len, len(line))
+    # Converting the list of new lines to a '\n' separated string.
+    output = ''
+    for new_line in new_lines:
+        output += tab + new_line + '\n'
+    return output
 
-    def __init__(self, data_file):
-        """
-        Creates a new class with a given data file.
-        """
-        self._data_file = data_file
-        self._data = self._load_data()
 
-    def __getitem__(self, index):
-        """
-        Gets the item at the specified index using the '[]' operator.
-        """
-        return self._data[index]
-    
-    def __setitem__(self, index, value):
-        """
-        Sets the item at the specified index using the '[]' operator.
-        """
-        self._data[index] = value
+def crop_labeled_line_to_str(label, line, line_n, tab_n):
+    """
+    Crops the line to the given line length, adding new lines where necessary, along with the correct indent and a
+    label at the start.
+    """
+    line_len = line_n - tab_n - len(label)
+    tab = ' ' * (tab_n + len(label))
+    # Account for empty string.
+    if len(line) == 0:
+        return ' ' * tab_n + label + '\n'
+    # Crop long lines.
+    new_lines = []
+    i = 0
+    j = min(line_len, len(line))
+    while i != j:
+        new_lines.append(line[i: j])
+        i = j
+        j = min(j + line_len, len(line))
+    # Converting the list of new lines to a '\n' separated string.
+    output = ' ' * tab_n + label + new_lines[0] + '\n'
+    if len(new_lines) > 1:
+        for new_line in new_lines[1:]:
+            output += tab + new_line + '\n'
+    return output
 
-    def __len__(self):
-        """
-        Gets the length of this item.
-        """
-        return len(self._data)
-    
-    def append(self, value):
-        """
-        Appends a value to this item.
-        """
-        self._data.append(value)
 
-    def sample(self, n):
-        """
-        Returns a list of n random elements.
-        """
-        return random.sample(self._data, n)
+def iterable_to_str(iterable):
+    """
+    Converts an iterable to a nice string.
+    """
+    output = ''
+    for item in iterable:
+        output += ' ' + item
+    return output[1:]
 
-    def list(self):
-        """
-        Returns this set as a list.
-        """
-        return self._data.copy()
 
-    def _load_data(self):
-        """
-        Loads the data from the data_file.
-        """
-        with open(self._data_file, 'r') as f:
-            data = json.load(f)
-        queries = self._get_queries(data)
-        query_types = self._get_query_types(data)
-        passages = self._get_passages(data)
-        answers = self._get_combined_answers(self._get_answers(data), self._get_well_formed_answers(data))
-        return [{'query': query, 'query_type': query_type, 'passages': passage_list, 'answers': answer_list} 
-                for query, query_type, passage_list, answer_list
-                in zip(queries, query_types, passages, answers)]
-        
-    def _get_queries(self, data):
-        """
-        Gets the list of queries from the loaded data.
-        """
-        n = len(data['query'].keys())
-        queries = list(np.empty((n,)))
-        for key in data['query'].keys():
-            i = int(key)
-            queries[i] = data['query'][key]
-        return queries
-    
-    def _get_query_types(self, data):
-        """
-        Gets the list of query types from the loaded data.
-        """
-        n = len(data['query_type'].keys())
-        query_types = list(np.empty((n,)))
-        for key in data['query_type'].keys():
-            i = int(key)
-            query_types[i] = data['query_type'][key]
-        return query_types
-    
-    def _get_passages(self, data):
-        """
-        Gets the list of lists of passages from the loaded data.
-        """
-        n = len(data['passages'].keys())
-        passages = list(np.empty((n,)))
-        for key in data['passages'].keys():
-            i = int(key)
-            passages[i] = [passage['passage_text'] for passage in data['passages'][key]]
-        return passages
-    
-    def _get_answers(self, data):
-        """
-        Gets the list of answers from the loaded data. Deals with the ['No Answer Present.'] empty case.
-        """
-        n = len(data['answers'].keys())
-        answers = list(np.empty((n,)))
-        for key in data['answers'].keys():
-            i = int(key)
-            if data['answers'][key] == ['No Answer Present.']:
-                answers[i] = []
-            else:
-                answers[i] = data['answers'][key]
-        return answers
-    
-    def _get_well_formed_answers(self, data):
-        """
-        Gets the list of well formed answers from the loaded data. Deals with the '[]' empty case.
-        """
-        n = len(data['wellFormedAnswers'].keys())
-        well_formed_answers = list(np.empty((n,)))
-        for key in data['wellFormedAnswers'].keys():
-            i = int(key)
-            if data['wellFormedAnswers'][key] == '[]':
-                well_formed_answers[i] = []
-            else:
-                well_formed_answers[i] = data['wellFormedAnswers'][key]
-        return well_formed_answers
-    
-    def _get_combined_answers(self, answers, well_formed_answers):
-        """
-        Combines the list of answers and well formed answers into a combined_answers list, where well formed answers 
-        replace answers.    
-        """
-        if len(answers) != len(well_formed_answers):
-            raise RuntimeError('Different number of elements for answers and well formed answers!')
-        combined_answers = list(np.empty((len(answers),)))
-        for i in range(len(answers)):
-            # Removing repeats of answers, just to be safe.
-            for well_formed_answer in well_formed_answers[i]:
-                if well_formed_answer in answers[i]:
-                    well_formed_answers[i].remove(well_formed_answer)
-            if len(well_formed_answers[i]) > 0:
-                combined_answers[i] = well_formed_answers[i]
-            else:
-                combined_answers[i] = answers[i]
-        return combined_answers
-        
+def load_dataset(file):
+    """
+    Loads the data from the set in the given file.
+    """
+    with open(file, 'r') as f:
+        return json.load(f)
 
-def get_num_empty_answers(data_interface):
+
+def dataset_is_full(dataset):
+    """
+    Determines if this dataset has all of the possible information.
+    """
+    return 'answers' in dataset.keys() and 'wellFormedAnswers' in dataset.keys()
+
+
+def get_data_categories(dataset):
+    """
+    Gets the data categories in the given dataset.
+    """
+    return dataset.keys()
+
+
+def get_num_elements(dataset):
+    """
+    Gets the number of elements in this dataset.
+    """
+    num_passages = len(dataset['passages'].keys())
+    num_queries = len(dataset['query'].keys())
+    num_query_ids = len(dataset['query_id'].keys())
+    num_query_types = len(dataset['query_type'].keys())
+    if not num_passages == num_queries == num_query_ids == num_query_types:
+        print('WARNING: element counts not identical for each data category!')
+    return num_passages
+
+
+def get_query_types(dataset):
+    """
+    Gets all of the query types for a given dataset, and packages them in a dict with the first index key for that query
+     type.
+    """
+    query_types_dataset = dataset['query_type']
+    # Getting all of the possible query types in the dataset.
+    query_types = []
+    for query_type in query_types_dataset.values():
+        if query_type not in query_types:
+            query_types.append(query_type)
+    # Getting the index key of the first occurrence of query type.
+    result = {}
+    for index_key in query_types_dataset.keys():
+        for query_type in query_types:
+            if query_type not in result and query_types_dataset[index_key] == query_type:
+                result[query_type] = index_key
+    return result
+
+
+def get_limited_dataset_sample(dataset):
+    """
+    Gets a sample of the limited dataset. This means the first passage, url, and query for each query type.
+    """
+    query_types = get_query_types(dataset)
+    result = {}
+    for query_type in query_types.keys():
+        index_key = query_types[query_type]
+        passage = dataset['passages'][index_key][0]['passage_text']
+        url = dataset['passages'][index_key][0]['url']
+        query = dataset['query'][index_key]
+        result[query_type] = {'passage': passage, 'url': url, 'query': query}
+    return result
+
+
+def get_full_dataset_sample(dataset):
+    """
+    Gets a sample of the full dataset. This means the selected passages, url, query, answer, and well-formed answer
+    for each query
+    type.
+    """
+    query_types = get_query_types(dataset)
+    result = {}
+    for query_type in query_types.keys():
+        index_key = query_types[query_type]
+        passages = []
+        urls = []
+        for passage in dataset['passages'][index_key]:
+            if passage['is_selected'] == 1:
+                passages.append(passage['passage_text'])
+                urls.append(passage['url'])
+        answers = []
+        for answer in dataset['answers'][index_key]:
+            if answer != 'No Answer Present.':
+                answers.append(answer)
+        wellFormedAnswers = []
+        if dataset['wellFormedAnswers'][index_key] != '[]':
+            for wellFormedAnswer in dataset['wellFormedAnswers'][index_key]:
+                wellFormedAnswers.append(wellFormedAnswer)
+        query = dataset['query'][index_key]
+        result[query_type] = {'passages': passages, 'urls': urls, 'query': query, 'answers': answers,
+                              'wellFormedAnswers': wellFormedAnswers}
+    return result
+
+
+def get_limited_dataset_sample_string(dataset, tab_n, line_n):
+    """
+    Gets a string representing the dataset sample of the given limited dataset.
+    """
+    tab = ' ' * tab_n
+    # Building the output string.
+    output = ''
+    dataset_sample = get_limited_dataset_sample(dataset)
+    for query_type in dataset_sample.keys():
+        # Adding query type.
+        output += query_type + '\n'
+        # Adding the query section, indented once.
+        output += tab + 'Query: ' + dataset_sample[query_type]['query'] + '\n'
+        # Adding the passage section, indented once.
+        output += tab + 'Passage:' + '\n'
+        # Adding the passage, indented twice.
+        output += crop_line_to_str(dataset_sample[query_type]['passage'], line_n, tab_n * 2)
+        # Adding the url section, indented twice.
+        output += crop_labeled_line_to_str('URL: ', dataset_sample[query_type]['url'], line_n, tab_n * 2)
+        # Adding a newline for readability.
+        output += '\n'
+    return output
+
+
+def get_full_dataset_sample_string(dataset, tab_n, line_n):
+    """
+    Gets a string representing the dataset sample of the given full dataset.
+    """
+    tab = ' ' * tab_n
+    # Building the output string.
+    output = ''
+    dataset_sample = get_full_dataset_sample(dataset)
+    for query_type in dataset_sample.keys():
+        # Adding query type.
+        output += query_type + '\n'
+        # Adding the query section, indented once.
+        output += tab + 'Query: ' + dataset_sample[query_type]['query'] + '\n'
+        # Adding the answer section section, indented once.
+        answers = iterable_to_str(dataset_sample[query_type]['answers'])
+        output += crop_labeled_line_to_str('Answers: ', answers, line_n, tab_n)
+        # Adding the well formed answer section section, indented once.
+        wellFormedAnswers = iterable_to_str(dataset_sample[query_type]['wellFormedAnswers'])
+        output += crop_labeled_line_to_str('Well formed answers: ', wellFormedAnswers, line_n, tab_n)
+        # Adding the passages section, indented once.
+        output += tab + 'Passages:' + '\n'
+        for i in range(len(dataset_sample[query_type]['passages'])):
+            # Adding the passage, indented twice.
+            output += crop_line_to_str(dataset_sample[query_type]['passages'][i], line_n, tab_n * 2)
+            # Adding the url, indented twice.
+            output += crop_labeled_line_to_str('URL: ', dataset_sample[query_type]['urls'][i], line_n, tab_n * 2)
+            # Adding newline for readability.
+            output += '\n'
+        # Adding a newline for readability.
+        output += '\n'
+    return output
+
+
+def write_dataset_info(input_file, output_file, tab_n, line_n):
+    """
+    Writes the info for the limited dataset at input_file to the output_file.
+    """
+    # Reading the info from the dataset.
+    dataset = load_dataset(input_file)
+    print('Dataset loaded!')
+    num_elements = get_num_elements(dataset)
+    data_categories = iterable_to_str(get_data_categories(dataset))
+    query_types = iterable_to_str(get_query_types(dataset))
+    if dataset_is_full(dataset):
+        dataset_sample_string = get_full_dataset_sample_string(dataset, tab_n, line_n)
+    else:
+        dataset_sample_string = get_limited_dataset_sample_string(dataset, tab_n, line_n)
+    # Writing the info to our output file.
+    with open(output_file, 'w+') as f:
+        f.write(f'Num elements: {num_elements}\n')
+        f.write(crop_labeled_line_to_str('Data categories: ', data_categories, line_n, 0))
+        f.write(crop_labeled_line_to_str('Query types: ', query_types, line_n, 0))
+        f.write('Sample:\n')
+        f.write(dataset_sample_string)
+
+
+def get_dataset_info():
+    if len(sys.argv) == 1:
+        input_file_1 = '../data/eval_v2.1_public.json'
+        input_file_2 = '../data/dev_v2.1.json'
+        input_file_3 = '../data/train_v2.1.json'
+        output_file_1 = '../data/eval_v2.1_public.info.txt'
+        output_file_2 = '../data/dev_v2.1.json.info.txt'
+        output_file_3 = '../data/train_v2.1.info.txt'
+        write_dataset_info(input_file_1, output_file_1, 4, 100)
+        write_dataset_info(input_file_2, output_file_2, 4, 100)
+        write_dataset_info(input_file_3, output_file_3, 4, 100)
+    elif len(sys.argv) < 3:
+        print('Please input input file name followed by output file name when calling this script.')
+    else:
+        write_dataset_info(sys.argv[1], sys.argv[2], 4, 100)
+
+
+"""
+This section is for exploratory analysis of the MS MARCO dataset, with various techniques.
+"""
+
+
+def get_num_empty_answers(dataset):
     """
     Gets the number of empty answers in the data interface.
     """
     count = 0
-    for i in range(len(data_interface)):
-        if len(data_interface[i]['answers']) == 0:
+    for i in range(len(dataset)):
+        if len(dataset[i]['answers']) == 0:
             count += 1
     return count
 
@@ -183,25 +303,24 @@ def element_to_prompt(element):
     return output
 
 
-def write_n_prompts(data_interface, n, output):
+def write_n_prompts(dataset, n, output):
     """
     Samples n prompts from n random elements in the data interface, to be given to a language model.
     Writes the output as a JSON file.
     """
-    elements = data_interface.sample(n)
-    prompts = [element_to_prompt(element) for element in elements]
+    prompts = [dataset.prompt[i] for i in range(n)]
     with open(output, 'w+') as f:
         json.dump(prompts, f, indent=4)
 
 
-def plot_character_frequencies(data_interface):
+def plot_character_frequencies(dataset):
     """
     Gets the frequency of each character within the answers for a data interface.
     """
     # Getting the number of each character and storing in a dict.
     char_counts = {}
     num_chars = 0
-    for element in data_interface.list():
+    for element in dataset.list():
         answers = element['answers']
         for answer in answers:
             for character in answer.replace(' ', ''):
@@ -214,7 +333,7 @@ def plot_character_frequencies(data_interface):
                     else:
                         char_counts[character] += 1
     # Sorting the char_counts by value, converting count to frequency, and storing it in paired x and y lists.
-    sorted_items = sorted(char_counts.items(), key=lambda x: x[1], reverse=True)
+    sorted_items = sorted(char_counts.items(), key=lambda item: item[1], reverse=True)
     x, y = zip(*sorted_items)
     y = [count / num_chars for count in y]
     # Sorting the items in the x and y 
@@ -222,17 +341,17 @@ def plot_character_frequencies(data_interface):
     plt.xlabel('Categories')
     plt.ylabel('Frequency')
     plt.show()
-    top_10 = dict(sorted(char_counts.items(), key=lambda x: x[1], reverse=True)[:10])
+    top_10 = dict(sorted(char_counts.items(), key=lambda item: item[1], reverse=True)[:10])
     return top_10.keys()
 
 
-def plot_word_length_kde(data_interface):
+def plot_word_length_kde(dataset):
     """
     Pots the KDE for word length.
     """
     # Getting a list of all of the word lengths.
     word_lengths = []
-    for element in data_interface.list():
+    for element in dataset.list():
         answers = element['answers']
         for answer in answers:
             for word in answer.split(' '):
@@ -245,32 +364,32 @@ def plot_word_length_kde(data_interface):
     return sum(word_lengths) / len(word_lengths)
 
 
-def plot_sentence_length_kde(data_interface):
+def plot_sentence_length_kde(dataset):
     """
-    Pots the KDE for sentance length.
+    Pots the KDE for sentence length.
     """
-    # Getting a list of all of the sentance lengths.
-    sentance_lengths = []
-    for element in data_interface.list():
+    # Getting a list of all of the sentence lengths.
+    sentence_lengths = []
+    for element in dataset.list():
         answers = element['answers']
         for answer in answers:
-            for sentance in answer.split('.'):
-                sentance_lengths.append(len(sentance))
-    sns.kdeplot(data=sentance_lengths)
-    plt.xlabel('Overall Sentance Length')
+            for sentence in answer.split('.'):
+                sentence_lengths.append(len(sentence))
+    sns.kdeplot(data=sentence_lengths)
+    plt.xlabel('Overall sentence Length')
     plt.ylabel('Density')
     plt.xlim(0, 300)
     plt.show()
-    return sum(sentance_lengths) / len(sentance_lengths)
+    return sum(sentence_lengths) / len(sentence_lengths)
 
 
-def plot_num_letters_kde(data_interface):
+def plot_num_letters_kde(dataset):
     """
     Pots the KDE for response length.
     """
-    # Getting a list of all of the sentance lengths.
+    # Getting a list of all of the sentence lengths.
     response_lengths = []
-    for element in data_interface.list():
+    for element in dataset.list():
         answers = element['answers']
         for answer in answers:
             response_lengths.append(len(answer))
@@ -282,13 +401,13 @@ def plot_num_letters_kde(data_interface):
     return sum(response_lengths) / len(response_lengths)
 
 
-def plot_num_words_kde(data_interface):
+def plot_num_words_kde(dataset):
     """
     Pots the KDE for number of words per response.
     """
     # Getting a list of all of the word counts.
     word_counts = []
-    for element in data_interface.list():
+    for element in dataset.list():
         answers = element['answers']
         for answer in answers:
             word_counts.append(len(answer.split(' ')))
@@ -300,22 +419,22 @@ def plot_num_words_kde(data_interface):
     return sum(word_counts) / len(word_counts)
 
 
-def plot_num_sentances_kde(data_interface):
+def plot_num_sentences_kde(dataset):
     """
-    Pots the KDE for number of sentances per response.
+    Pots the KDE for number of sentences per response.
     """
-    # Getting a list of all of the sentance counts.
-    sentance_counts = []
-    for element in data_interface.list():
+    # Getting a list of all of the sentence counts.
+    sentence_counts = []
+    for element in dataset.list():
         answers = element['answers']
         for answer in answers:
-            sentance_counts.append(len(answer.split('.')))
-    sns.kdeplot(data=sentance_counts)
-    plt.xlabel('Per-Response Sentance Count')
+            sentence_counts.append(len(answer.split('.')))
+    sns.kdeplot(data=sentence_counts)
+    plt.xlabel('Per-Response sentence Count')
     plt.ylabel('Density')
     plt.xlim(0, 7)
     plt.show()
-    return sum(sentance_counts) / len(sentance_counts)
+    return sum(sentence_counts) / len(sentence_counts)
 
 
 def reduce_answer_corpus(corpus, p):
@@ -326,24 +445,24 @@ def reduce_answer_corpus(corpus, p):
     return random.sample(corpus, newsize)
 
 
-def get_answer_corpus(data_interface):
+def get_answer_corpus(dataset):
     """
-    Gets the corpus for the answers in the data_interface
+    Gets the corpus for the answers in the dataset
     """
     corpus = []
-    for element in data_interface.list():
+    for element in dataset.list():
         answers = element['answers']
         for answer in answers:
             corpus.append(answer)
     return corpus
 
 
-def apply_tf_idf(data_interface, p):
+def apply_tf_idf(dataset, p):
     """
     Applies tf-idf method to the data interface over the answers.
     """
     # Getting the answers as a corpus
-    corpus = get_answer_corpus(data_interface)
+    corpus = get_answer_corpus(dataset)
     print(f'Original corpus length: {len(corpus)}')
     corpus = reduce_answer_corpus(corpus, p)
     print(f'Reduced corpus length: {len(corpus)}')
@@ -355,7 +474,7 @@ def apply_tf_idf(data_interface, p):
     print(f'Number of distinct words: {len(feature_names)}')
     denselist = x.todense().tolist()
     df = pd.DataFrame(denselist, columns=feature_names)
-    print(f'Datframe shape: {df.shape}')
+    print(f'Dataframe shape: {df.shape}')
     # Finding the words with the highest values
     sums = df.sum(axis=0)
     data = []
@@ -369,20 +488,21 @@ def apply_tf_idf(data_interface, p):
     print(f'Bottom 20 words from TF-IDF: {bottom_20_words.tolist()}')
 
 
-def main():
+def exploratory_analysis():
     data_file = '../data/dev_v2.1.json'
-    data_interface = DataInterface(data_file)
-    empty_answers = get_num_empty_answers(data_interface)
-    total_answers = len(data_interface)
+    dataset = MSMarcoDataset(data_file)
+    empty_answers = get_num_empty_answers(dataset)
+    total_answers = len(dataset)
     print(f'Empty answers: {empty_answers} empty answers out of {total_answers} total answers.')
-    print(f'Top 10 most frequent characters: {plot_character_frequencies(data_interface)}')
-    print(f'Average word length overall: {plot_word_length_kde(data_interface)}')
-    print(f'Average sentance length overall: {plot_sentence_length_kde(data_interface)}')
-    print(f'Letter count per-response: {plot_num_letters_kde(data_interface)}')
-    print(f'Word count per-response: {plot_num_words_kde(data_interface)}')
-    print(f'Sentance count per-response: {plot_num_sentances_kde(data_interface)}')
-    apply_tf_idf(data_interface, 0.2)
+    print(f'Top 10 most frequent characters: {plot_character_frequencies(dataset)}')
+    print(f'Average word length overall: {plot_word_length_kde(dataset)}')
+    print(f'Average sentence length overall: {plot_sentence_length_kde(dataset)}')
+    print(f'Letter count per-response: {plot_num_letters_kde(dataset)}')
+    print(f'Word count per-response: {plot_num_words_kde(dataset)}')
+    print(f'sentence count per-response: {plot_num_sentences_kde(dataset)}')
+    apply_tf_idf(dataset, 0.2)
 
 
 if __name__ == '__main__':
-    main()
+    get_dataset_info()
+    exploratory_analysis()
