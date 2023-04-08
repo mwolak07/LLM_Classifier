@@ -9,7 +9,7 @@ class MSMarcoDataset:
     TODO: Add type hints.
     """
 
-    def __init__(self, data_file):
+    def __init__(self, data_file: str):
         """
         Creates a new class with a given data file.
         """
