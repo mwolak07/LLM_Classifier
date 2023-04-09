@@ -1,5 +1,6 @@
-from dataclasses import dataclass
+from collections.abc import Sequence
 from typing import List, Dict, Any
+from dataclasses import dataclass
 from enum import Enum
 import numpy as np
 import random
@@ -37,15 +38,18 @@ class MSMarcoItem:
     answers: List[str]
 
 
-class MSMarcoDataset:
+class MSMarcoDataset(Sequence):
     """
     Responsible for providing an easy-to-use interface for the MS MARCO question-answer dataset.
-    Functions as an iterator, with elements of MSMarcoItem.
+    Implements Sequence, so it can be iterated over in for loops and accessed like a list.
 
     Attributes:
+        no_answer_phrase: (class attribute) The phrase the prompt should be answered with when giving an answer is not
+                          possible.
         _data_file: The location on disk of the data file.
         _data: Internal list representing a list of elements of the MS Marco dataset.
     """
+    no_answer_phrase = 'No Answer Present.'
     _data_file: str
     _data: List[MSMarcoItem]
 
@@ -119,9 +123,8 @@ class MSMarcoDataset:
         query = element.query
         output += f'Please answer this query: {query}\n'
         # Giving message about no answer.
-        no_answer_phrase = 'No Answer Present.'
         output += f'If it is not possible to answer the query using the given prompts, ' \
-                  f'please state: {no_answer_phrase}\n'
+                  f'please state: {self.no_answer_phrase}\n'
         return output
 
     def _load_data(self) -> List[MSMarcoItem]:

@@ -1,14 +1,18 @@
 from __future__ import annotations
-from sqlalchemy import Integer, String, Boolean,Table, Column, MetaData,\
+from sqlalchemy import Integer, String, Boolean, Table, Column, MetaData,\
     create_engine, insert, update, select
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.types import TypeDecorator, String as StringType
+from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.engine import Engine
-from typing import Any, Optional, List, Dict, Tuple
+from typing import Any, Optional, List, Tuple, Dict, Union, Type
+from collections.abc import Sequence
 from dataclasses import dataclass
+from numpy import ndarray
 import json
+from src import MSMarcoDataset, MSMarcoItem
 
 
 # Calling the sqlalchemy factory function for creating a base class for our tables.
@@ -18,9 +22,10 @@ Base = declarative_base()
 @dataclass
 class GPTClassifierItem:
     """
-    Represents one element from the dataset for the GPT LLM classification problem.
+    Represents one piece of vectorized text, human or GPT LLM generated, with a label. 0 for human, 1 for AI.
     """
-    pass
+    text: ndarray[float]
+    label: int
 
 
 class GPTClassifierDataset:
@@ -31,7 +36,21 @@ class GPTClassifierDataset:
     pass
 
 
-class _GPTClassifierDatabase:
+@dataclass
+class GPTClassifierRow:
+    """
+    Represents one item from the dataset for the GPT LLM classification problem.
+    """
+    query: str
+    passages: List[str]
+    chosen_passages: List[str]
+    prompt: str
+    human_answer: str
+    gpt_answer: str
+    has_answer: bool
+
+
+class GPTClassifierDatabase(Sequence):
     """
     Responsible for providing an easy-to-use interface for creating and accessing the database for storing the data for
     the GPT LLM classification problem.
@@ -86,11 +105,12 @@ class _GPTClassifierDatabase:
         # Trying to get the table from the database.
         try:
             table = Table(table_name, self._metadata, autoload_with=engine)
-        except Exception:
+        except NoSuchTableError:
             table = Table(table_name, self._metadata,
                           Column('id', Integer, primary_key=True),
                           Column('query', String),
                           Column('passages', _JsonList),
+                          Column('chosen_passages', _JsonList),
                           Column('prompt', String),
                           Column('human_answer', String),
                           Column('gpt_answer', String),
@@ -107,19 +127,99 @@ class _GPTClassifierDatabase:
         self._session.commit()
         self._session.close()
 
-    def add_ms_marco_item(self, item: Dict[str, Any]) -> None:
+    def add_ms_marco_dataset(self, dataset: MSMarcoDataset) -> None:
+        """
+        Adds the elements from the given MS Marco dataset to the database. This will populate all of the columns except
+        for 'gpt_answer', which it will leave blank. The id will be the index in the dataset.
+
+        Args:
+            dataset: The MS Marco dataset object we will be getting the MS Marco data from.
+        """
+        # Unpacking the rows for each element in the dataset into a large list of rows. A flattening step is needed.
+        values = [row for i in range(len(dataset)) for row in self._ms_marco_item_to_rows(i, dataset)]
+        statement = insert(self._table).values(values)
+        self._session.execute(statement)
+        self._session.commit()
+
+    @staticmethod
+    def _ms_marco_item_to_rows(index: int, dataset: MSMarcoDataset) -> List[Dict[str, Any]]:
+        """
+        Converts the given MS Marco element to an dict, which represents the value for each column in the
+        gpt_classifier_data table. Creates multiple rows for multiple answers. Fills gpt_answer in as None.
+
+        Args:
+            index: The index of the element in the MS Marco Dataset.
+            dataset: The MS Marco dataset object we will be getting the MS Marco data from.
+
+        Returns:
+            A dict representing the row in the gpt_classifier_data table.
+        """
+        output = []
+        # Grabbing the item.
+        item = dataset[index]
+        # Generating the prompt.
+        prompt = dataset.prompt(index)
+        # Going through each answer.
+        for answer in item.answers:
+            output.append({'id': index,
+                           'query': dataset[index].query,
+                           'passages': dataset[index].passages,
+                           'chosen_passages': dataset[index].chosen_passages,
+                           'prompt': prompt,
+                           'human_answer': answer,
+                           'gpt_answer': None,
+                           'has_answer': True})
+        # There was no answer.
+        if len(item.answers) == 0:
+            output.append({'id': index,
+                           'query': dataset[index].query,
+                           'passages': dataset[index].passages,
+                           'chosen_passages': dataset[index].chosen_passages,
+                           'prompt': prompt,
+                           'human_answer': dataset.no_answer_phrase,
+                           'has_answer': False})
+        return output
+
+    def add_gpt_answers(self, answers: List[str]) -> None:
+        """
+        Takes a list of answers from the LLM, in the order of row 'id', and inserts them.
+
+        Args:
+            answers: A list of answers the LLM gave to the prompts, in order of row 'id'.
+        """
+        values = [{'gpt_answer': answer} for answer in answers]
+        statement = insert(self._table).values(values)
+        self._session.execute(statement)
+        self._session.commit()
+
+    def prompts(self) -> List[str]:
+        """
+        Returns a list of all of the prompts, in order by increasing row 'id'.
+
+        Returns:
+            A list of prompts, ordered by increasing row 'id'.
+        """
         pass
 
-    def add_ms_marco_items(self, item: List[Dict[str, Any]]) -> None:
+    def __getitem__(self, index: int) -> GPTClassifierRow:
+        """
+        Returns the row at 'id' index.
+
+        Args:
+            index: The index of the row to retrieve. This corresponds to the row 'id'.
+
+        Returns:
+            A GPTClassifierItem, which represents one row in our database.
+        """
         pass
 
-    def add_gpt_answer(self, index: int) -> None:
-        pass
+    def __len__(self) -> int:
+        """
+        Returns the number of rows in the gpt_classifier_data table.
 
-    def __getitem__(self, index):
-        pass
-
-    def __len__(self):
+        Returns:
+            The number of rows in the table.
+        """
         pass
 
 
@@ -132,8 +232,8 @@ class _JsonList(TypeDecorator):
 
     def process_bind_param(self, value: Optional[List[Any]], dialect: Dialect) -> Any:
         """
-        Receive a bound parameter value to be converted. Goes from the target data type to a bound parameter in the SQL
-        statement.
+        Receive a bound parameter value to be converted. Goes from the target data type (list) to a bound parameter in
+        the SQL statement (string representation of JSON).
 
         Args:
             value: The data to be converted.
@@ -148,7 +248,8 @@ class _JsonList(TypeDecorator):
 
     def process_result_value(self, value: Optional[Any], dialect: Dialect) -> Optional[List[Any]]:
         """
-        Receive a result-row column value to be converted. Goes from the data in the result row to the target data type.
+        Receive a result-row column value to be converted. Goes from the data in the result row
+        (string representation of JSON) to the target data type (list).
 
         Args:
             value: The data to be converted.
@@ -160,3 +261,17 @@ class _JsonList(TypeDecorator):
         if value is not None:
             value = json.loads(value)
         return value
+
+    def process_literal_param(self, value: Optional[List[Any]], dialect: Dialect) -> str:
+        """
+        Receive a literal parameter value to be rendered inline within a statement. Goes from the target data (list)
+        to a string.
+        """
+        return str(self.process_bind_param(value, dialect))
+
+    @property
+    def python_type(self) -> Type:
+        """
+        Returns the python type this class represents.
+        """
+        return list

@@ -1,2 +1,2 @@
-from ms_marco_dataset import MSMarcoDataset, MAMarcoItem, MSMarcoQueryType
-from gpt_classifier_dataset import GPTClassifierDataset, GPTClassifierItem
+from ms_marco_dataset import MSMarcoDataset, MSMarcoItem, MSMarcoQueryType
+from gpt_classifier_dataset import GPTClassifierDataset, GPTClassifierItem, GPTClassifierDatabase, GPTClassifierRow
