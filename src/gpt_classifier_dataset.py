@@ -21,17 +21,25 @@ class GPTClassifierDataset:
         db: The database containing the gpt classifier dataset.
     """
     db: GPTClassifierDatabase
-    ms_marco_dataset: MSMarcoDataset
 
-    def __init__(self, db_loc: str, ms_marco_loc: str):
-
+    def __init__(self, db_loc: str):
+        """
+        Initializes the dataset using the database.
+        """
         self.db = GPTClassifierDatabase(db_loc)
-        self.ms_marco_dataset = MSMarcoDataset(ms_marco_loc)
 
-    def create_dataset(self):
+    def create_dataset(self, ms_marco_dataset: MSMarcoDataset, llm: None):
         """
-        Creates the dataset. This uses the MS
+        Creates the dataset. This uses the MS_Marco dataset along with the llm to:
+        - Insert the context and human answers to the database
+        - Get the prompts for each element in the database
+        - Generate the llm answers using the prompts and the llm
+        - Insert the llm answers into the database.
 
+        Args:
+            ms_marco_dataset: The MS_Marco dataset corresponding to
         """
+        self.db.add_ms_marco_dataset(ms_marco_dataset)
+
 
 

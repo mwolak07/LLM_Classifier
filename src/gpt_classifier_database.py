@@ -1,6 +1,6 @@
 from __future__ import annotations
 from sqlalchemy import Integer, String, Boolean, Table, Column, MetaData,\
-    create_engine, insert, select, func
+    create_engine, insert, update, select, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.orm import sessionmaker, Session
@@ -28,7 +28,7 @@ class GPTClassifierRow:
     chosen_passages: List[str]
     prompt: str
     human_answer: str
-    gpt_answer: str
+    llm_answer: str
     has_answer: bool
 
 
@@ -95,7 +95,7 @@ class GPTClassifierDatabase(Sequence):
                           Column('chosen_passages', _JsonList),
                           Column('prompt', String),
                           Column('human_answer', String),
-                          Column('gpt_answer', String),
+                          Column('llm_answer', String),
                           Column('has_answer', Boolean)
                           )
             self._metadata.create_all(engine)
@@ -112,11 +112,20 @@ class GPTClassifierDatabase(Sequence):
     def add_ms_marco_dataset(self, dataset: MSMarcoDataset) -> None:
         """
         Adds the elements from the given MS Marco dataset to the database. This will populate all of the columns except
-        for 'gpt_answer', which it will leave blank. The id will be the index in the dataset.
+        for 'llm_answer', which it will leave blank. The id will be the index in the dataset.
+
+        Assume:
+            This should run first, only when the table is empty.
 
         Args:
             dataset: The MS Marco dataset object we will be getting the MS Marco data from.
+
+        Raises:
+            RuntimeError: When the table is not already empty.
         """
+        # Should only run when the table is empty.
+        if len(self) != 0:
+            raise RuntimeError('Table is not empty!')
         # Unpacking the rows for each element in the dataset into a large list of rows. A flattening step is needed.
         values = [row for i in range(len(dataset)) for row in self._ms_marco_item_to_rows(i, dataset)]
         statement = insert(self._table).values(values)
@@ -127,8 +136,7 @@ class GPTClassifierDatabase(Sequence):
     def _ms_marco_item_to_rows(index: int, dataset: MSMarcoDataset) -> List[Dict[str, Any]]:
         """
         Converts the MS Marco element at the given index in the dataset to an dict, which represents the value for each
-        column in the gpt_classifier_data table. Creates multiple rows for multiple answers. Fills gpt_answer in as
-        None.
+        column in the gpt_classifier_data table. Creates multiple rows for multiple answers. Omits llm_answer.
 
         Args:
             index: The index of the element in the MS Marco Dataset.
@@ -150,7 +158,7 @@ class GPTClassifierDatabase(Sequence):
                            'chosen_passages': dataset[index].chosen_passages,
                            'prompt': prompt,
                            'human_answer': answer,
-                           'gpt_answer': None,
+                           'llm_answer': None,
                            'has_answer': True})
         # There was no answer.
         if len(item.answers) == 0:
@@ -163,15 +171,23 @@ class GPTClassifierDatabase(Sequence):
                            'has_answer': False})
         return output
 
-    def add_gpt_answers(self, answers: List[str]) -> None:
+    def add_llm_answers(self, answers: List[str]) -> None:
         """
         Takes a list of answers from the LLM, in the order of row 'id', and inserts them.
 
+        Assume:
+            This should run only after add_ms_marco_dataset, when the table is not empty.
+
         Args:
             answers: A list of answers the LLM gave to the prompts, in order of row 'id'.
+
+        Raises:
+            RuntimeError: When the table is empty.
         """
-        values = [{'gpt_answer': answer} for answer in answers]
-        statement = insert(self._table).values(values)
+        if len(self):
+            raise RuntimeError('Table is empty!')
+        values = [{'llm_answer': answer} for answer in answers]
+        statement = update(self._table).values(values)
         self._session.execute(statement)
         self._session.commit()
 
@@ -185,6 +201,15 @@ class GPTClassifierDatabase(Sequence):
         statement = select(self._table.prompt).order_by(self._table.id)
         prompts = self._session.execute(statement).all()
         return prompts
+
+    def clear(self) -> None:
+        """
+        Clears the gpt_classifier_dataset table. Asks the user for confirmation before proceeding.
+        """
+        choice = input('WARNING: You are deleting the database. Are you SURE this is your intention? (y/n): ')
+        if choice != 'y':
+            return
+        self._session.query(self._table).delete()
 
     def __getitem__(self, index: int) -> GPTClassifierRow:
         """
