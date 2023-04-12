@@ -109,7 +109,7 @@ class GPTClassifierDatabase(Sequence):
         self._session.commit()
         self._session.close()
 
-    def add_ms_marco_dataset(self, dataset: MSMarcoDataset) -> None:
+    def add_ms_marco_dataset(self, dataset: MSMarcoDataset, short_prompts: bool = False) -> None:
         """
         Adds the elements from the given MS Marco dataset to the database. This will populate all of the columns except
         for 'llm_answer', which it will leave blank. The id will be the index in the dataset.
@@ -119,6 +119,8 @@ class GPTClassifierDatabase(Sequence):
 
         Args:
             dataset: The MS Marco dataset object we will be getting the MS Marco data from.
+            short_prompts: If this is True, we will use only the chosen passages in the prompts, and "no answer" cases
+                           will be excluded. This will remove the "no answer" instruction from the prompt as well.
 
         Raises:
             RuntimeError: When the table is not already empty.
@@ -127,13 +129,14 @@ class GPTClassifierDatabase(Sequence):
         if len(self) != 0:
             raise RuntimeError('Table is not empty!')
         # Unpacking the rows for each element in the dataset into a large list of rows. A flattening step is needed.
-        values = [row for i in range(len(dataset)) for row in self._ms_marco_item_to_rows(i, dataset)]
+        values = [row for i in range(len(dataset)) for row in self._ms_marco_item_to_rows(i, dataset, short_prompts)]
         statement = insert(self._table).values(values)
         self._session.execute(statement)
         self._session.commit()
 
     @staticmethod
-    def _ms_marco_item_to_rows(index: int, dataset: MSMarcoDataset) -> List[Dict[str, Any]]:
+    def _ms_marco_item_to_rows(index: int, dataset: MSMarcoDataset, short_prompts: bool = False) \
+            -> List[Dict[str, Any]]:
         """
         Converts the MS Marco element at the given index in the dataset to an dict, which represents the value for each
         column in the gpt_classifier_data table. Creates multiple rows for multiple answers. Omits llm_answer.
@@ -141,6 +144,8 @@ class GPTClassifierDatabase(Sequence):
         Args:
             index: The index of the element in the MS Marco Dataset.
             dataset: The MS Marco dataset object we will be getting the MS Marco data from.
+            short_prompts: If this is True, we will use only the chosen passages in the prompts, and "no answer" cases
+                           will be excluded. This will remove the "no answer" instruction from the prompt as well.
 
         Returns:
             A dict representing the row in the gpt_classifier_data table.
@@ -148,8 +153,11 @@ class GPTClassifierDatabase(Sequence):
         output = []
         # Grabbing the item.
         item = dataset[index]
-        # Generating the prompt.
-        prompt = dataset.prompt(index)
+        # Generating the prompt. This is different for short_prompts.
+        if short_prompts:
+            prompt = dataset.prompt(index, short_prompts) if len(item.answers) != 0 else None
+        else:
+            prompt = dataset.prompt(index, short_prompts)
         # Going through each answer.
         for answer in item.answers:
             output.append({'id': index,
@@ -160,8 +168,8 @@ class GPTClassifierDatabase(Sequence):
                            'human_answer': answer,
                            'llm_answer': None,
                            'has_answer': True})
-        # There was no answer.
-        if len(item.answers) == 0:
+        # There was no answer, and short_prompts is False.
+        if len(item.answers) == 0 and not short_prompts:
             output.append({'id': index,
                            'query': dataset[index].query,
                            'passages': dataset[index].passages,
