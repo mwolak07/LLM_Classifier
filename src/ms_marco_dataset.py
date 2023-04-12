@@ -102,22 +102,36 @@ class MSMarcoDataset(Sequence):
         """
         return self._data.copy()
 
-    def prompt(self, index: int) -> str:
+    def prompt(self, index: int, short: bool = False) -> str:
         """
         Generates the language model prompt for the nth element in the dataset. This contains the context of the
-        passages, an explanation of how to answer, and the question.
+        passages, an explanation of how to answer, and the question. The context can be all of the passages, or only
+        the ones chosen as relevant by the human respondent. Note, that there will be no chosen passages if the human
+        respondent stated that there were no answers.
+
+        Assume:
+            If short is True, then answers is not empty.
 
         Args:
             index: The index of the MS Marco element we want to generate the prompt for.
+            short: If True, we only use the chosen_passages, instead of the passages, to generate the prompt.
 
         Returns:
             The LLM prompt for the corresponding element.
+
+        Raises:
+            RuntimeError if there is no answer and short=True.
         """
         # Getting the nth element in the dataset.
         element = self[index]
+        # Ensuring that there is an answer if short=True.
+        if short and len(element.answers) == 0:
+            raise RuntimeError('Short prompt cannot be specified for an item with no answer!')
         # Providing the model the context passages.
         output = 'With the following passages:\n'
-        for passage in element.passages:
+        # Getting the list of passages based on short.
+        passages = element.chosen_passages if short else element.passages
+        for passage in passages:
             output += passage + '\n\n'
         # Providing the model the query.
         query = element.query
