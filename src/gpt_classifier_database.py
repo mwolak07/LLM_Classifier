@@ -1,13 +1,13 @@
 from __future__ import annotations
 from sqlalchemy import Integer, String, Boolean, Table, Column, MetaData,\
-    create_engine, insert, update, select
+    create_engine, insert, select, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.types import TypeDecorator, String as StringType
 from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.engine import Engine
-from typing import Any, Optional, List, Tuple, Dict, Union, Type
+from typing import Any, Optional, List, Tuple, Dict, Type
 from collections.abc import Sequence
 from dataclasses import dataclass
 import json
@@ -182,7 +182,9 @@ class GPTClassifierDatabase(Sequence):
         Returns:
             A list of prompts, ordered by increasing row 'id'.
         """
-        pass
+        statement = select(self._table.prompt).order_by(self._table.id)
+        prompts = self._session.execute(statement).all()
+        return prompts
 
     def __getitem__(self, index: int) -> GPTClassifierRow:
         """
@@ -194,7 +196,9 @@ class GPTClassifierDatabase(Sequence):
         Returns:
             A GPTClassifierItem, which represents one row in our database.
         """
-        pass
+        statement = select(self._table).where(self._table.id == index)
+        item = self._session.execute(statement).first()
+        return item
 
     def __len__(self) -> int:
         """
@@ -203,7 +207,9 @@ class GPTClassifierDatabase(Sequence):
         Returns:
             The number of rows in the table.
         """
-        pass
+        statement = select(func.count()).select_from(self._table)
+        rows = self._session.execute(statement).scalar()
+        return rows
 
 
 class _JsonList(TypeDecorator):
