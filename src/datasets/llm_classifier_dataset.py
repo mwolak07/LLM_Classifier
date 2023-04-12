@@ -2,14 +2,14 @@ from typing import List, Optional, Tuple, Union
 from collections.abc import Sequence
 from torch.utils.data import Dataset
 from numpy import ndarray
-from src import GPTClassifierDatabase, MSMarcoDataset
+from src.datasets import LLMClassifierDatabase, MSMarcoDataset, InferenceLLM
 
 
 # Storing the type definition for a Feature, to make things simpler.
 Feature = Union[str, ndarray[float]]
 
 
-class GPTClassifierDataset(Sequence, Dataset):
+class LLMClassifierDataset(Sequence, Dataset):
     """
     Responsible for providing a performant and easy-to-use interface for dataset for the GPT LLM classification problem.
     Uses GPTClassifierDatabase internally to store the dataset on disk.
@@ -22,22 +22,22 @@ class GPTClassifierDataset(Sequence, Dataset):
     """
     _vectorizer: None = None
     _vectorize: bool
-    _db: GPTClassifierDatabase
+    _db: LLMClassifierDatabase
     _data: Optional[List[Tuple[Feature, int]]]
 
-    def __init__(self, db_loc: str, load_to_memory=False, vectorize=False):
+    def __init__(self, db_path: str, load_to_memory=False, vectorize=False):
         """
         Initializes the dataset using the database. If load_to_memory is True, it will store the entire dataset in
         memory when the object is initialized.
 
         Args:
-            db_loc: The location on disk of the database we are getting our data from.
+            db_path: The location on disk of the database we are getting our data from.
             load_to_memory: If true, we will load the contents of the database into memory. This will only be beneficial
                             if our dataset is smaller than our RAM.
             vectorize: If true, we will use self.vectorizer to turn the string feature into a vector of floats.
         """
         self._vectorize = vectorize
-        self._db = GPTClassifierDatabase(db_loc)
+        self._db = LLMClassifierDatabase(db_path)
         self._data = None
         if load_to_memory:
             self._data = self._load_dataset_to_memory()
@@ -59,7 +59,7 @@ class GPTClassifierDataset(Sequence, Dataset):
         else:
             return data
 
-    def create_database(self, ms_marco_dataset: MSMarcoDataset, llm: None, short_prompts: bool = False) -> None:
+    def create_database(self, ms_marco_dataset: MSMarcoDataset, llm: InferenceLLM, short_prompts: bool = False) -> None:
         """
         Creates the database. This uses the MS_Marco dataset along with the llm to:
         - Insert the context and human answers to the database
@@ -77,7 +77,7 @@ class GPTClassifierDataset(Sequence, Dataset):
         self._db.add_ms_marco_dataset(ms_marco_dataset, short_prompts)
         # Getting all of the prompts for the LLM and adding its answers to the database.
         prompts = self._db.prompts()
-        llm_answers = llm.predict(prompts)
+        llm_answers = llm.answers(prompts)
         self._db.add_llm_answers(llm_answers)
 
     def __getitem__(self, index: int) -> Tuple[Feature, int]:

@@ -11,7 +11,7 @@ from typing import Any, Optional, List, Tuple, Dict, Type
 from collections.abc import Sequence
 from dataclasses import dataclass
 import json
-from src import MSMarcoDataset
+from src.datasets import MSMarcoDataset
 
 
 # Calling the sqlalchemy factory function for creating a base class for our tables.
@@ -19,7 +19,7 @@ Base = declarative_base()
 
 
 @dataclass
-class GPTClassifierRow:
+class LLMClassifierRow:
     """
     Represents one item from the dataset for the GPT LLM classification problem.
     """
@@ -32,7 +32,7 @@ class GPTClassifierRow:
     has_answer: bool
 
 
-class GPTClassifierDatabase(Sequence):
+class LLMClassifierDatabase(Sequence):
     """
     Responsible for providing an easy-to-use interface for creating and accessing the database for storing the data for
     the GPT LLM classification problem.
@@ -40,23 +40,23 @@ class GPTClassifierDatabase(Sequence):
     """
     _engine: Engine
     _session: Session
-    _gpt_classifier_table: Table
+    _llm_classifier_table: Table
     _metadata: MetaData
 
-    def __init__(self, db_loc: str):
+    def __init__(self, db_path: str):
         """
         Initializes a new GPTClassifierDataset and connects to the database. The database will be created at the
         specified location if it is not already there.
 
         Args:
-            db_loc: The location on disk or the network of the database.
+            db_path: The location on disk or the network of the database.
         """
         self._metadata = MetaData()
-        self._engine, self._session, self._table = self._connect_to_db(db_loc)
+        self._engine, self._session, self._table = self._connect_to_db(db_path)
 
     def _connect_to_db(self, db_loc: str) -> Tuple[Engine, Session, Table]:
         """
-        Connects to the database at the location specified. If the gpt_classifier_data table is not already there,
+        Connects to the database at the location specified. If the llm_classifier_data table is not already there,
         creates it.
 
         Args:
@@ -74,16 +74,16 @@ class GPTClassifierDatabase(Sequence):
     def _get_table(self, engine: Engine) -> Table:
         """
         Gets the Table object from the database
-        If the gpt_classifier_data table exists, gets the Table object from the database.
-        If not, creates the gpt_classifier_data table in the database.
+        If the llm_classifier_data table exists, gets the Table object from the database.
+        If not, creates the llm_classifier_data table in the database.
 
         Args:
             engine: The sqlalchemy engine that handles our database.
 
         Returns:
-            The Table object corresponding to the gpt_classifier_data table in the database.
+            The Table object corresponding to the llm_classifier_data table in the database.
         """
-        table_name = 'gpt_classifier_data'
+        table_name = 'llm_classifier_data'
         # Trying to get the table from the database.
         try:
             table = Table(table_name, self._metadata, autoload_with=engine)
@@ -139,7 +139,7 @@ class GPTClassifierDatabase(Sequence):
             -> List[Dict[str, Any]]:
         """
         Converts the MS Marco element at the given index in the dataset to an dict, which represents the value for each
-        column in the gpt_classifier_data table. Creates multiple rows for multiple answers. Omits llm_answer.
+        column in the llm_classifier_data table. Creates multiple rows for multiple answers. Omits llm_answer.
 
         Args:
             index: The index of the element in the MS Marco Dataset.
@@ -148,7 +148,7 @@ class GPTClassifierDatabase(Sequence):
                            will be excluded. This will remove the "no answer" instruction from the prompt as well.
 
         Returns:
-            A dict representing the row in the gpt_classifier_data table.
+            A dict representing the row in the llm_classifier_data table.
         """
         output = []
         # Grabbing the item.
@@ -212,14 +212,14 @@ class GPTClassifierDatabase(Sequence):
 
     def clear(self) -> None:
         """
-        Clears the gpt_classifier_dataset table. Asks the user for confirmation before proceeding.
+        Clears the llm_classifier_data table. Asks the user for confirmation before proceeding.
         """
         choice = input('WARNING: You are deleting the database. Are you SURE this is your intention? (y/n): ')
         if choice != 'y':
             return
         self._session.query(self._table).delete()
 
-    def __getitem__(self, index: int) -> GPTClassifierRow:
+    def __getitem__(self, index: int) -> LLMClassifierRow:
         """
         Returns the row at 'id' index.
 
@@ -235,7 +235,7 @@ class GPTClassifierDatabase(Sequence):
 
     def __len__(self) -> int:
         """
-        Returns the number of rows in the gpt_classifier_data table.
+        Returns the number of rows in the llm_classifier_data table.
 
         Returns:
             The number of rows in the table.

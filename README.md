@@ -1,3 +1,13 @@
+## Commands:
+
+This is a list of useful commands. These are to be executed from the project root directory.
+- Generating env requirements:
+  - Conda: conda env export > environment.yml
+- Installing from generated env requirements:
+  - Conda: conda install -f environment.yml
+- Generating the databases in /data/llm_classifier:
+  - python3 src/datasets/generate_datasets.py
+
 ## Refences:
 @software{gpt-neox-library,
   title = {{GPT-NeoX: Large Scale Autoregressive Language Modeling in PyTorch}},
