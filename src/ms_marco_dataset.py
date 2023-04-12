@@ -136,9 +136,10 @@ class MSMarcoDataset(Sequence):
         # Providing the model the query.
         query = element.query
         output += f'Please answer this query: {query}\n'
-        # Giving message about no answer.
-        output += f'If it is not possible to answer the query using the given prompts, ' \
-                  f'please state: {self.no_answer_phrase}\n'
+        # Giving message about no answer, if we are not using short prompts.
+        if not short:
+            output += f'If it is not possible to answer the query using the given prompts, ' \
+                      f'please state: {self.no_answer_phrase}\n'
         return output
 
     def _load_data(self) -> List[MSMarcoItem]:
