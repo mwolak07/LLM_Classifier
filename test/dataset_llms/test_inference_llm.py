@@ -3,8 +3,27 @@ import unittest
 import json
 import os
 from src.dataset_llms import InferenceLLM
-from src.util import cd_from_root
+from src.util import cd_from_root, get_ram_gb
 from test.dataset_llms import write_questions
+
+
+class TestInferenceLLMUtils(unittest.TestCase):
+    """
+    Tests the utility functions in the InferenceLLM class.
+    """
+
+    def test_check_ram(self):
+        """
+        Tests that the check_ram function works correctly.
+        """
+        ram = get_ram_gb()
+        # Checking when system RAM < minimum RAM.
+        with self.assertRaises(RuntimeError):
+            InferenceLLM.check_ram(ram + 1)
+        # Checking when system RAM = minimum RAM.
+        InferenceLLM.check_ram(ram)
+        # Checking when system RAM > minimum RAM.
+        InferenceLLM.check_ram(ram - 1)
 
 
 class TestInferenceLLM(unittest.TestCase):
