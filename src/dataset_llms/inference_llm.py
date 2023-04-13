@@ -1,6 +1,7 @@
 from transformers import PreTrainedTokenizer, PreTrainedModel
 from abc import ABC
 from typing import List
+from src.util import get_ram_gb
 
 
 class InferenceLLM(ABC):
@@ -8,13 +9,26 @@ class InferenceLLM(ABC):
     Abstract class, representing an interface for LLMs which we can use for inference when generating the dataset.
 
     Attributes:
+        _min_ram_gb: (class attribute) The amount of RAM, in gb, we need to initialize the model.
         _temperature: (class attribute) The temperature for the LLM.
         _model: The model we will use to perform inference.
         _tokenizer: The model we will use to transform the input strings into vectors.
     """
+    _min_ram_gb: float = 0.0
     _temperature: str = 0.9
     _model: PreTrainedModel
     _tokenizer: PreTrainedTokenizer
+
+    def check_ram(self) -> None:
+        """
+        Check if there is not enough RAM to initialize the model.
+
+        Raises:
+            RuntimeError if there is not enough RAM.
+        """
+        if get_ram_gb() < self._min_ram_gb:
+            raise RuntimeError(f'Need at least {self._min_ram_gb} GB of RAM to initialize model! '
+                               f'You have {get_ram_gb()} GB!')
 
     def model_to_gpu(self) -> None:
         """
