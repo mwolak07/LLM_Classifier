@@ -1,4 +1,4 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, LlamaTokenizer, LlamaForCausalLM
 import time
 import os
 
@@ -26,13 +26,16 @@ def download_huggingface_model(model_path: str) -> None:
     Args:
         model_path: The huggingface path to the model.
     """
+    # Using different tokenizer and model for llama.
+    tokenizer = AutoTokenizer if 'llama' not in model_path else LlamaTokenizer
+    model = AutoModelForCausalLM if 'llame' not in model_path else LlamaForCausalLM
     if not model_path_in_cache(model_path):
         print(f'Downloading {model_path}...')
         t = time.time()
         # Model might be too big for memory, we want to continue in this case.
         try:
-            AutoTokenizer.from_pretrained(model_path)
-            AutoModelForCausalLM.from_pretrained(model_path)
+            tokenizer.from_pretrained(model_path)
+            model.from_pretrained(model_path)
         except RuntimeError as e:
             if 'not enough memory' in str(e):
                 print(f'Warning: {model_path} could not be initialized, because there was not enough system RAM!')
