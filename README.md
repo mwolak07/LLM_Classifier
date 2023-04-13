@@ -13,6 +13,8 @@ This is a list of useful commands. These are to be executed from the project roo
   - python3 src/datasets/generate_datasets.py
 - Generating the test prompts:
   - python3 test/datasets/generate_test_questions.py
+- Downloading pretrained huggingface models:
+  - python3 src/models/download_huggingface_models.py
 
 ## Refences:
 @software{gpt-neox-library,
