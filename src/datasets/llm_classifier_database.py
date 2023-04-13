@@ -158,7 +158,7 @@ class LLMClassifierDatabase(Sequence):
             prompt = dataset.prompt(index, short_prompts) if len(item.answers) != 0 else None
         else:
             prompt = dataset.prompt(index, short_prompts)
-        # Going through each answer.
+        # Going through each answer. If there is no answer, we get back an empty list.
         for answer in item.answers:
             output.append({'id': index,
                            'query': dataset[index].query,
@@ -168,15 +168,6 @@ class LLMClassifierDatabase(Sequence):
                            'human_answer': answer,
                            'llm_answer': None,
                            'has_answer': True})
-        # There was no answer, and short_prompts is False.
-        if len(item.answers) == 0 and not short_prompts:
-            output.append({'id': index,
-                           'query': dataset[index].query,
-                           'passages': dataset[index].passages,
-                           'chosen_passages': dataset[index].chosen_passages,
-                           'prompt': prompt,
-                           'human_answer': dataset.no_answer_phrase,
-                           'has_answer': False})
         return output
 
     def add_llm_answers(self, answers: List[str]) -> None:

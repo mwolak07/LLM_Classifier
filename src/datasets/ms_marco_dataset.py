@@ -128,18 +128,14 @@ class MSMarcoDataset(Sequence):
         if short and len(element.answers) == 0:
             raise RuntimeError('Short prompt cannot be specified for an item with no answer!')
         # Providing the model the context passages.
-        output = 'With the following passages:\n'
+        output = 'Using only the following context:\n'
         # Getting the list of passages based on short.
         passages = element.chosen_passages if short else element.passages
         for passage in passages:
             output += passage + '\n\n'
         # Providing the model the query.
         query = element.query
-        output += f'Please answer this query: {query}\n'
-        # Giving message about no answer, if we are not using short prompts.
-        if not short:
-            output += f'If it is not possible to answer the query using the given prompts, ' \
-                      f'please state: {self.no_answer_phrase}\n'
+        output += f'The answer, in complete sentences, to the question, "{query}?", is:\n'
         return output
 
     def _load_data(self) -> List[MSMarcoItem]:
