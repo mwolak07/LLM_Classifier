@@ -1,5 +1,22 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import time
+import os
+
+
+def model_path_in_cache(model_path: str) -> bool:
+    """
+    Checks if the given model_path has already been downloaded in the huggingface cache.
+
+    Args:
+        model_path: The huggingface path to the model.
+
+    Returns:
+        Is model_path in the huggingface cache?
+    """
+    user_path = os.path.expanduser('~')
+    cache = os.path.join(user_path, '.cache/huggingface/hub')
+    model_folder = 'models--' + model_path.replace('/', '--')
+    return model_folder in os.listdir(cache)
 
 
 def download_huggingface_model(model_path: str) -> None:
@@ -9,11 +26,22 @@ def download_huggingface_model(model_path: str) -> None:
     Args:
         model_path: The huggingface path to the model.
     """
-    print(f'Downloading {model_path}...')
-    t = time.time()
-    AutoTokenizer.from_pretrained(model_path)
-    AutoModelForCausalLM.from_pretrained(model_path)
-    print(f'Done in {time.time() - t}s')
+    if not model_path_in_cache(model_path):
+        print(f'Downloading {model_path}...')
+        t = time.time()
+        # Model might be too big for memory, we want to continue in this case.
+        try:
+            AutoTokenizer.from_pretrained(model_path)
+            AutoModelForCausalLM.from_pretrained(model_path)
+        except RuntimeError as e:
+            if 'not enough memory' in str(e):
+                print(f'Warning: {model_path} could not be initialized, because there was not enough system RAM!')
+            else:
+                raise e
+
+        print(f'Done in {time.time() - t}s')
+    else:
+        print(f'{model_path} already downloaded!')
 
 
 def download_huggingface_models() -> None:

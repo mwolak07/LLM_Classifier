@@ -1,6 +1,4 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM, PreTrainedTokenizer
-# from optimum.bettertransformer import BetterTransformer
-from torch.nn import Module
+from transformers import AutoTokenizer, AutoModelForCausalLM, PreTrainedTokenizer, PreTrainedModel
 from typing import List
 from src.datasets import InferenceLLM
 
@@ -15,16 +13,14 @@ class InferenceGPTNeoX(InferenceLLM):
         _tokenizer: The model we will use to transform the input strings into vectors.
     """
     _temperature: float = 0.9
-    _model: Module
+    _model: PreTrainedModel
     _tokenizer: PreTrainedTokenizer
 
     def __init__(self):
         """
         Initializes the model and tokenizer with the appropriate parameters for inference.
         """
-        # unoptimized_model = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b", device_map='auto')
-        # self._model = BetterTransformer.transform(unoptimized_model)
-        self._model = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
+        self._model = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b", device_map='auto')
         self._tokenizer = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-neox-20b")
 
     def answer(self, question: str) -> str:
