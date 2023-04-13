@@ -51,7 +51,6 @@ def download_huggingface_models() -> None:
     """
     Downloads the pretrained huggingface models used in this project. These models are:
     - gpt-neox-20b | 20B params  | ___GB VRAM | __GB RAM
-    - llama-13b-hf | 13B params  | 20GB VRAM  | 32GB RAM
     - llama-7b-hf  | 7B params   | 9.2GB VRAM | 24GB RAM
     - gpt-j-6b     | 6B params   | ___GB VRAM | __GB RAM
     - gpt-neo-2.7B | 2.7B params | ___GB VRAM | __GB RAM
@@ -63,7 +62,6 @@ def download_huggingface_models() -> None:
     - gpt2         | 124M params | ___GB VRAM | __GB RAM
     """
     download_huggingface_model('EleutherAI/gpt-neox-20b')
-    download_huggingface_model('decapoda-research/llama-13b-hf')
     download_huggingface_model('decapoda-research/llama-7b-hf')
     download_huggingface_model('EleutherAI/gpt-j-6b')
     download_huggingface_model('EleutherAI/gpt-neo-2.7B')
