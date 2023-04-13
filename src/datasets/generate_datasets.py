@@ -1,5 +1,6 @@
 import os
 from src.datasets import MSMarcoDataset, InferenceLLM, InferenceGPTNeoX, LLMClassifierDataset
+from src.util import cd_from_root
 
 
 def generate_dataset(train: bool, short_prompts: bool, llm: InferenceLLM, db_file: str) -> None:
@@ -14,10 +15,12 @@ def generate_dataset(train: bool, short_prompts: bool, llm: InferenceLLM, db_fil
         llm: The llm we will be using to do inference on our prompts.
         db_file: The file we will be writing our database to.
     """
-    # Storing up the file paths for MS MARCO train/test, and the database folder.
-    ms_marco_train = '../../data/MS_MARCO/train_v2.1.json'
-    ms_marco_test = '../../data/MS_MARCO/dev_v2.1.json'
-    db_folder = '../../data/llm_classifier'
+    # Cd to /src if we are at root.
+    cd_from_root('src')
+    # Assume we are in the /src directory.
+    ms_marco_train = '../data/MS_MARCO/train_v2.1.json'
+    ms_marco_test = '../data/MS_MARCO/dev_v2.1.json'
+    db_folder = '../data/llm_classifier'
     # Deciding which ms_marco dataset to use based on train vs. test.
     ms_marco_path = ms_marco_train if train else ms_marco_test
     # Making the database file path.

@@ -2,6 +2,7 @@ from typing import Dict
 import random
 import json
 from src.datasets import MSMarcoDataset
+from src.util import cd_from_root
 
 
 def get_5_questions(dataset: MSMarcoDataset) -> Dict[str, str]:
@@ -26,9 +27,12 @@ def write_questions() -> None:
     other random prompts from each dataset. The longest prompt overall get put under 'max_question', and the 8 combined
     random samples go under 'random_questions'.
     """
-    train_file = '../../data/MS_MARCO/train_v2.1.json'
-    test_file = '../../data/MS_MARCO/dev_v2.1.json'
-    output_file = 'test_questions.json'
+    # Cd to /test if we are at root.
+    cd_from_root('test')
+    # Assume we are running from the /test directory.
+    train_file = '../data/MS_MARCO/train_v2.1.json'
+    test_file = '../data/MS_MARCO/dev_v2.1.json'
+    output_file = './datasets/test_questions.json'
     output = {}
 
     # Getting the prompts from the training set.

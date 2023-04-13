@@ -2,6 +2,7 @@ import unittest
 import json
 import os
 from src.datasets import InferenceGPTNeoX
+from src.util import cd_from_root
 from test.datasets import write_questions
 
 
@@ -9,13 +10,16 @@ class TestInferenceGPTNeoX(unittest.TestCase):
     """
     Tests the functionality of the InferenceGPTNeoX class.
     """
+    test_questions_path: str = './datasets/test_questions.json'
 
     @classmethod
     def setUpClass(cls):
         """
         Ensures test_questions.json exists and writes it if it does not.
         """
-        if not os.path.exists('test_questions.json'):
+        # Cd to /test if we are at root.
+        cd_from_root('test')
+        if not os.path.exists(cls.test_questions_path):
             write_questions()
 
     def setUp(self):
@@ -23,7 +27,7 @@ class TestInferenceGPTNeoX(unittest.TestCase):
         Initializes our llm and set of questions before each test.
         """
         self.llm = InferenceGPTNeoX()
-        with open('test_questions.json', 'r') as f:
+        with open(self.test_questions_path, 'r') as f:
             questions = json.load(f)
         self.max_question = questions['max_question']
         self.random_questions = questions['random_questions']

@@ -1,6 +1,6 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from matplotlib import pyplot as plt
-from src import MSMarcoDataset
+from src.datasets import MSMarcoDataset
 import seaborn as sns
 import pandas as pd
 import random

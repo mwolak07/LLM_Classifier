@@ -1,1 +1,1 @@
-from generate_test_questions import write_questions
+from .generate_test_questions import write_questions
