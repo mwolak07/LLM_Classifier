@@ -1,4 +1,5 @@
 # LLM Classifier 2023
+
 This repo contains the code for a large language model (LLM) output classification project. The goal is to investigate ways of classifying if a piece of text comes from a human, or a large language model. This is our final project for CS 4400 at NEU for the spring 2023 semester.
 
 ## Commands:
