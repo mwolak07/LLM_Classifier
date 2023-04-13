@@ -1,5 +1,4 @@
-from transformers import GPTNeoXForCausalLM, GPTNeoXTokenizerFast
-from optimum.bettertransformer import BetterTransformer
+from transformers import GPTNeoXForCausalLM, GPTNeoXTokenizerFast, PreTrainedModel, PreTrainedTokenizer
 from typing import List
 from src.datasets import InferenceLLM
 
@@ -14,15 +13,14 @@ class InferenceGPTNeoX(InferenceLLM):
         _tokenizer: The model we will use to transform the input strings into vectors.
     """
     _temperature: float = 0.9
-    _model: None
-    _tokenizer: None
+    _model: PreTrainedModel
+    _tokenizer: PreTrainedTokenizer
 
     def __init__(self):
         """
         Initializes the model and tokenizer with the appropriate parameters for inference.
         """
-        unoptimized_model = GPTNeoXForCausalLM.from_pretrained("EleutherAI/gpt-neox-20b")
-        self._model = BetterTransformer.transform(unoptimized_model, keep_original_model=True)
+        self._model = GPTNeoXForCausalLM.from_pretrained("EleutherAI/gpt-neox-20b")
         self._tokenizer = GPTNeoXTokenizerFast.from_pretrained("EleutherAI/gpt-neox-20b")
 
     def answer(self, question: str) -> str:
@@ -36,17 +34,17 @@ class InferenceGPTNeoX(InferenceLLM):
             The answer given by GPT Neo-X.
         """
         # Tokenizing the input.
-        input_ids = self._tokenizer(question, return_tensors="pt").input_ids
+        input_token_ids = self._tokenizer(question, return_tensors="pt").input_ids
         # Performing the inference.
-        gen_tokens = self._model.generate(
-            input_ids,
+        output_tokens = self._model.generate(
+            input_token_ids,
             do_sample=True,
             temperature=self._temperature,
             max_length=len(question),
         )
         # Getting text back from the tokenized output.
-        gen_text = self._tokenizer.batch_decode(gen_tokens)[0]
-        return gen_text
+        answer = self._tokenizer.batch_decode(output_tokens)[0]
+        return answer
 
     def answers(self, questions: List[str]) -> List[str]:
         """
@@ -58,4 +56,15 @@ class InferenceGPTNeoX(InferenceLLM):
         Returns:
             The answers given by GPT Neo-X.
         """
-        return [self.answer(question) for question in questions]
+        # Tokenizing the inputs.
+        input_token_ids = self._tokenizer(questions, return_tensors='pt').input_ids
+        # Performing the batch inference.
+        output_tokens = self._model.generate(
+            input_token_ids,
+            do_sample=True,
+            temperature=self._temperature,
+            max_length=max([len(question) for question in questions]),
+        )
+        # Getting text back from the tokenized output.
+        answers = self._tokenizer.batch_decode(output_tokens)
+        return answers
