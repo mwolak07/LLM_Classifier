@@ -1,37 +1,40 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM, PreTrainedTokenizer, PreTrainedModel
+from transformers import PreTrainedTokenizer, PreTrainedModel
+from abc import ABC
 from typing import List
-from src.datasets import InferenceLLM
 
 
-class InferenceGPTNeoX(InferenceLLM):
+class InferenceLLM(ABC):
     """
-    Represents an LLM that we can use for inference.
+    Abstract class, representing an interface for LLMs which we can use for inference when generating the dataset.
 
     Attributes:
-        _temperature: (class attribute) The temperature for GPT Neo-X.
+        _temperature: (class attribute) The temperature for the LLM.
         _model: The model we will use to perform inference.
         _tokenizer: The model we will use to transform the input strings into vectors.
     """
-    _temperature: float = 0.9
+    _temperature: str = 0.9
     _model: PreTrainedModel
     _tokenizer: PreTrainedTokenizer
 
-    def __init__(self):
+    def model_to_gpu(self) -> None:
         """
-        Initializes the model and tokenizer with the appropriate parameters for inference.
+        Tries to assign the current model to the gpu.
         """
-        self._model = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b", device_map='auto')
-        self._tokenizer = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-neox-20b")
-
+        try:
+            self._model.to('gpu')
+        except RuntimeError as e:
+            if 'memory' in str(e):
+                print('WARNING! Could not move model to GPU. Inference will run on CPU.')
+        
     def answer(self, question: str) -> str:
         """
         Generates an answer based on the given question.
 
         Args:
-            question: The question GPT Neo-X should respond to.
+            question: The question the LLM should respond to.
 
         Returns:
-            The answer given by GPT Neo-X.
+            The answer given by the LLM.
         """
         # Tokenizing the input.
         input_token_ids = self._tokenizer(question, return_tensors="pt").input_ids
@@ -51,10 +54,10 @@ class InferenceGPTNeoX(InferenceLLM):
         Generates a list of answers based on the given list of questions.
 
         Args:
-            questions: The list of questions GPT Neo-X should respond to.
+            questions: The list of questions the LLM should respond to.
 
         Returns:
-            The answers given by GPT Neo-X.
+            The answers given by the LLM.
         """
         # Tokenizing the inputs.
         input_token_ids = self._tokenizer(questions, return_tensors='pt').input_ids
@@ -62,9 +65,15 @@ class InferenceGPTNeoX(InferenceLLM):
         output_tokens = self._model.generate(
             input_token_ids,
             do_sample=True,
-            temperature=self._temperature,
-            max_length=max([len(question) for question in questions]),
+            temperature=self._temperature
         )
         # Getting text back from the tokenized output.
         answers = self._tokenizer.batch_decode(output_tokens)
         return answers
+
+
+
+
+
+
+

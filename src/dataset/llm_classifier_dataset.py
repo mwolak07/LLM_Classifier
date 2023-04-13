@@ -2,7 +2,8 @@ from typing import List, Optional, Tuple, Union
 from collections.abc import Sequence
 from torch.utils.data import Dataset
 from numpy import ndarray
-from src.datasets import LLMClassifierDatabase, MSMarcoDataset, InferenceLLM
+from src.dataset import LLMClassifierDatabase, MSMarcoDataset
+from src.dataset_llms import InferenceLLM
 
 
 # Storing the type definition for a Feature, to make things simpler.

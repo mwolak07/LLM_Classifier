@@ -11,7 +11,7 @@ from typing import Any, Optional, List, Tuple, Dict, Type
 from collections.abc import Sequence
 from dataclasses import dataclass
 import json
-from src.datasets import MSMarcoDataset
+from src.dataset import MSMarcoDataset
 
 
 # Calling the sqlalchemy factory function for creating a base class for our tables.

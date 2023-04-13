@@ -1,7 +1,7 @@
 from typing import Dict
 import random
 import json
-from src.datasets import MSMarcoDataset
+from src.dataset import MSMarcoDataset
 from src.util import cd_from_root
 
 
