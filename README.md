@@ -7,6 +7,8 @@ This is a list of useful commands. These are to be executed from the project roo
   - Conda: conda env update --file environment.yml
 - Generating the databases in /data/llm_classifier:
   - python3 src/datasets/generate_datasets.py
+- Generating the test prompts:
+  - python3 test/datasets/generate_test_questions.py
 
 ## Refences:
 @software{gpt-neox-library,
