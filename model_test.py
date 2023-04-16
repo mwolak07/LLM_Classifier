@@ -87,8 +87,8 @@ def test_model_prompt(model_name):
 
 def test_model_gpu_question(model_name):
     """
-     0.) 
-     1.) 
+     0.) N, >8.0GB
+     1.) Y, 3.2GB
      2.) Y, 5.9GB
      3.) Y, 5.3GB
      4.) Y, 2.8GB
@@ -133,11 +133,14 @@ def test_model_gpu_prompt(model_name):
     print(f'loading model {model_name}...')
     model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=float16).to(torch.device('cuda'))
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    encoded_input = tokenizer(prompt, return_tensors='pt', return_attention_mask=True)
+    encoded_input = tokenizer([prompt], return_tensors='pt', return_attention_mask=True)
     input_ids = encoded_input.input_ids.to(torch.device('cuda'))
     attention_mask = encoded_input.attention_mask.to(torch.device('cuda'))
     encoded_output = model.generate(input_ids, max_new_tokens=25, do_sample=True, attention_mask=attention_mask)
-    output = tokenizer.batch_decode(encoded_output)
+    output = tokenizer.batch_decode(encoded_output)[0]
+    print(output)
+    print()
+    output = output.split('The answer, in complete sentences, to the question,')[1].split('is:')[1]
     print(output)
 
 
@@ -158,4 +161,4 @@ model_names = [
     'facebook/opt-125m',
     'EleutherAI/gpt-j-6b'
 ]
-test_model_gpu_question(model_names[int(sys.argv[1])])
+test_model_gpu_prompt(model_names[int(sys.argv[1])])

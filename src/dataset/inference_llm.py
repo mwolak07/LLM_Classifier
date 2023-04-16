@@ -72,11 +72,11 @@ class InferenceLLM(ABC):
         ram = get_ram_gb()
         vram = get_vram_gb()
         model_ram = model_ram_data[model_name]
-        if use_gpu and ram < model_ram or vram < model_ram:
-            raise RuntimeError(f'Need at least {min_ram_gb} GB of RAM to initialize model! '
+        if use_gpu and vram < model_ram:
+            raise RuntimeError(f'Need at least {model_ram} GB of VRAM to initialize model! '
                                f'You have {min(ram, vram)} GB!')
         elif ram < model_ram:
-            raise RuntimeError(f'Need at least {min_ram_gb} GB of RAM to initialize model! '
+            raise RuntimeError(f'Need at least {model_ram} GB of RAM to initialize model! '
                                f'You have {ram} GB!')
 
     @staticmethod
@@ -85,11 +85,18 @@ class InferenceLLM(ABC):
         Post-processes an answer. This involves removing the last sentence if it cut off part way through, and removing
         any repeated sentences at the end of the output.
         """
+        # Removing the context prompt.
+        answer = answer.split('The answer, in complete sentences, to the question,')[1].split(', is:')[1]
         # Getting the sentences.
         sentences = nltk.tokenize.sent_tokenize(answer)
-        # Removing the last sentence if it does not end in correct punctuation (cut off answer).
-        if sentences[-1][-1] not in '.!?':
-            sentences = sentences[:-1]
+        if len(sentences) > 1:
+            # Removing the last sentence if it does not end in correct punctuation (cut off answer).
+            if sentences[-1][-1] not in '.!?':
+                sentences = sentences[:-1]
+        else:
+            # Adding a period to a partial answer if there was only 1 sentence.
+            if sentences[-1][-1] not in '.!?':
+                sentences[-1].append('.')
         # Looking for repeats one after the other, and removing them.
         last_sentence = ''
         for i in range(len(sentences)):
@@ -123,14 +130,14 @@ class InferenceLLM(ABC):
         attention_mask = encoded_inputs.attention_mask(device('cuda')) if self._use_gpu \
             else encoded_inputs.attention_mask
         # Performing the inference.
-        output_tokens = self._model.generate(
+        encoded_output = self._model.generate(
             input_ids,
             do_sample=True,
-            max_new_length=max_answer_len,
+            max_new_tokens=max_answer_len,
             attention_mask=attention_mask
         )
         # Getting text back from the tokenized output.
-        answers = self._tokenizer.batch_decode(output_tokens)
+        answers = self._tokenizer.batch_decode(encoded_output)
         # Post-processing the answer.
         processed_answers = [self.postprocess_answer(answer) for answer in answers]
         return processed_answers
