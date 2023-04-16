@@ -25,7 +25,7 @@ prompt = "Using only the following context:\n" \
          "\n" \
          "The average starting salary for master's degree graduates can vary greatly based off of several factors, including the type of degree earned. For example, a computer science program graduate typically earns more than someone who graduates from a sociology program, even though they both hold a master's degree.he average starting salary for individuals with a master's degree depends on their field of study, among other factors.\n" \
          "\n" \
-         "The answer, in complete sentences, to the question: entry level income after doctorate degree?, is:\n"
+         "The answer, in complete sentences, to the question: \"entry level income after doctorate degree?\", is:\n"
 question = "The answer, in complete sentences, to the question, \"entry level income after doctorate degree?\", is:\n"
 
 
@@ -124,7 +124,7 @@ def test_model_gpu_prompt(model_name):
      6.) 
      7.) 
      8.) 
-     9.) 
+     9.) Y, 
     10.) Y, 1.2GB
     11.) Y, 0.4GB
     12.) N
