@@ -52,7 +52,7 @@ def test_model_question(model_name):
     encoded_input = tokenizer(question, return_tensors='pt', return_attention_mask=True)
     input_ids = encoded_input.input_ids
     attention_mask = encoded_input.attention_mask
-    encoded_output = model.generate(input_ids, max_new_tokens=25, do_sample=True, attention_mask=attention_mask)
+    encoded_output = model.generate(input_ids, max_new_tokens=100, do_sample=True, attention_mask=attention_mask)
     output = tokenizer.batch_decode(encoded_output)
     print(output)
 
@@ -80,7 +80,7 @@ def test_model_prompt(model_name):
     encoded_input = tokenizer(prompt, return_tensors='pt', return_attention_mask=True)
     input_ids = encoded_input.input_ids
     attention_mask = encoded_input.attention_mask
-    encoded_output = model.generate(input_ids, max_new_tokens=25, do_sample=True, attention_mask=attention_mask)
+    encoded_output = model.generate(input_ids, max_new_tokens=100, do_sample=True, attention_mask=attention_mask)
     output = tokenizer.batch_decode(encoded_output)
     print(output)
 
@@ -108,23 +108,23 @@ def test_model_gpu_question(model_name):
     encoded_input = tokenizer(question, return_tensors='pt', return_attention_mask=True)
     input_ids = encoded_input.input_ids.to(torch.device('cuda'))
     attention_mask = encoded_input.attention_mask.to(torch.device('cuda'))
-    encoded_output = model.generate(input_ids, max_new_tokens=25, do_sample=True, attention_mask=attention_mask)
+    encoded_output = model.generate(input_ids, max_new_tokens=100, do_sample=True, attention_mask=attention_mask)
     output = tokenizer.batch_decode(encoded_output)
     print(output)
 
 
 def test_model_gpu_prompt(model_name):
     """
-     0.) 
-     1.) 
-     2.) 
-     3.) 
-     4.) 
-     5.) 
-     6.) 
-     7.) 
-     8.) 
-     9.) Y, 
+     0.) N
+     1.) N
+     2.) Y, 7,5GB
+     3.) Y, 6.3GB
+     4.) Y, 3.4GB
+     5.) N
+     6.) Y, 3.5GB
+     7.) Y, 3.3GB
+     8.) N
+     9.) Y, 2.3GB
     10.) Y, 1.2GB
     11.) Y, 0.4GB
     12.) N
@@ -136,7 +136,7 @@ def test_model_gpu_prompt(model_name):
     encoded_input = tokenizer([prompt], return_tensors='pt', return_attention_mask=True)
     input_ids = encoded_input.input_ids.to(torch.device('cuda'))
     attention_mask = encoded_input.attention_mask.to(torch.device('cuda'))
-    encoded_output = model.generate(input_ids, max_new_tokens=25, do_sample=True, attention_mask=attention_mask)
+    encoded_output = model.generate(input_ids, max_new_tokens=100, do_sample=True, attention_mask=attention_mask)
     output = tokenizer.batch_decode(encoded_output)[0]
     print(output)
     print()

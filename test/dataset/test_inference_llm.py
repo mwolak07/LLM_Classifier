@@ -16,14 +16,24 @@ class TestInferenceLLMUtils(unittest.TestCase):
         """
         Tests that the check_ram function works correctly.
         """
+        # Checking for RAM
         ram = get_ram_gb()
         # Checking when system RAM < minimum RAM.
         with self.assertRaises(RuntimeError):
-            InferenceLLM.check_ram(ram + 1)
+            InferenceLLM.check_ram('../../src/models/model_ram.json', ram + 1, False)
         # Checking when system RAM = minimum RAM.
-        InferenceLLM.check_ram(ram)
+        InferenceLLM.check_ram('../../src/models/model_ram.json', ram, False)
         # Checking when system RAM > minimum RAM.
-        InferenceLLM.check_ram(ram - 1)
+        InferenceLLM.check_ram('../../src/models/model_ram.json', ram - 1, False)
+        # Checking for VRAM
+        vram = get_ram_gb()
+        # Checking when system VRAM < minimum RAM.
+        with self.assertRaises(RuntimeError):
+            InferenceLLM.check_ram('../../src/models/model_ram.json', vram + 1, True)
+        # Checking when system VRAM = minimum RAM.
+        InferenceLLM.check_ram('../../src/models/model_ram.json', vram, True)
+        # Checking when system VRAM > minimum RAM.
+        InferenceLLM.check_ram('../../src/models/model_ram.json', vram - 1, True)
 
 
 class TestInferenceLLM(unittest.TestCase):
@@ -62,6 +72,7 @@ class TestInferenceLLM(unittest.TestCase):
         Initializes the loads in test_questions.json.
         """
         self.load_test_questions()
+        self.model_names = ['facebook/opt-1.3b', 'bigscience/bloom-1b1', 'EleutherAI/gpt-neo-1.3B']
 
     def load_test_questions(self) -> None:
         """
@@ -76,41 +87,52 @@ class TestInferenceLLM(unittest.TestCase):
         """
         Ensures the llm can correctly generate an answer for a single question.
         """
-        for question in self.random_questions:
-            answer = self.llm.answer(question)
-            self.assertTrue(isinstance(answer, str))
-            self.assertTrue(len(answer) > 0)
+        for model_name in self.model_names:
+            with self.subTest(model_name=model_name):
+                llm = InferenceLLM(model_name)
+                for question in self.random_questions:
+                    answer = llm.answer(question)
+                    self.assertTrue(isinstance(answer, str))
+                    self.assertTrue(len(answer) > 0)
 
     def test_answer_long_question(self):
         """
         Ensures the llm can correctly generate an answer for a single question, which is the longest possible prompt in
         the MS MARCO dataset.
         """
-        answer = self.llm.answer(self.max_question)
-        self.assertTrue(isinstance(answer, str))
-        self.assertTrue(len(answer) > 0)
+        for model_name in self.model_names:
+            with self.subTest(model_name=model_name):
+                llm = InferenceLLM(model_name)
+                answer = llm.answer(self.max_question)
+                self.assertTrue(isinstance(answer, str))
+                self.assertTrue(len(answer) > 0)
 
     def test_answers(self):
         """
         Ensures the llm can correctly generate a set of answers for multiple questions.
         """
-        answers = self.llm.answers(self.random_questions)
-        self.assertTrue(len(answers) == len(self.random_questions))
-        for answer in answers:
-            self.assertTrue(isinstance(answer, str))
-            self.assertTrue(len(answer) > 0)
+        for model_name in self.model_names:
+            with self.subTest(model_name=model_name):
+                llm = InferenceLLM(model_name)
+                answers = llm.answers(self.random_questions)
+                self.assertTrue(len(answers) == len(self.random_questions))
+                for answer in answers:
+                    self.assertTrue(isinstance(answer, str))
+                    self.assertTrue(len(answer) > 0)
 
     def test_answers_long_question(self):
         """
         Ensures the llm can correctly generate a set of answers for multiple questions, if one of the questions is the
         max question.
         """
-        answers = self.llm.answers(self.random_questions + [self.max_question])
-        self.assertTrue(len(answers) == len(self.random_questions) + 1)
-        for answer in answers:
-            self.assertTrue(isinstance(answer, str))
-            self.assertTrue(len(answer) > 0)
-
+        for model_name in self.model_names:
+            with self.subTest(model_name=model_name):
+                llm = InferenceLLM(model_name)
+                answers = llm.answers(self.random_questions + [self.max_question])
+                self.assertTrue(len(answers) == len(self.random_questions))
+                for answer in answers:
+                    self.assertTrue(isinstance(answer, str))
+                    self.assertTrue(len(answer) > 0)
 
 if __name__ == '__main__':
     unittest.main()

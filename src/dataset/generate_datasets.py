@@ -54,11 +54,9 @@ def generate_datasets():
     Generates a dataset for each inference llm:
 
     """
-    generate_datasets_for_llm(InferenceGPTNeoX(), '../../data/gpt_neo_x')
-    generate_datasets_for_llm(InferenceGPTJ6B(), '../../data/gpt_j_6b')
-    generate_datasets_for_llm(InferenceGPTNeo27B(), '../../data/gpt_neo_2_7B')
-    generate_datasets_for_llm(InferenceGPTNeo13B(), '../../data/gpt_neo_1_3B')
-    generate_datasets_for_llm(InferenceGPT2XL(), '../../data/gpt2_xl')
+    generate_datasets_for_llm(InferenceLLM('facebook/opt-1.3b'), '../../data/opt_1_3B')
+    generate_datasets_for_llm(InferenceLLM('bigscience/bloom-1b1'), '../../data/bloom_1_1B')
+    generate_datasets_for_llm(InferenceLLM('EleutherAI/gpt-neo-1.3B'), '../../data/gpt_neo_1_3B')
 
 
 if __name__ == '__main__':
