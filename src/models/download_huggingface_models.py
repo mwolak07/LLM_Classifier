@@ -48,6 +48,7 @@ def download_huggingface_model(model_path: str) -> None:
 def download_huggingface_models() -> None:
     """
     Downloads the pretrained huggingface models used in this project. These models are:
+    - gpt-j-6b     | 6B params   | 22.5 GB
     - gpt-neo-2.7B | 2.7B params | 9.9 GB
     - gpt2-xl      | 1.5B params | 6.0 GB
     - bloom-3b     | 3B params   | 5.6 GB
@@ -63,6 +64,7 @@ def download_huggingface_models() -> None:
     - gpt2         | 124M params | 0.5 GB
     - opt-125m     | 125M params | 0.3 GB
     """
+    download_huggingface_model('EleutherAI/gpt-j-6b')
     download_huggingface_model('EleutherAI/gpt-neo-2.7B')
     download_huggingface_model('gpt2-xl')
     download_huggingface_model('bigscience/bloom-3b')
