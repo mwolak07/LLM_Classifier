@@ -52,7 +52,7 @@ def download_huggingface_models() -> None:
     - gpt-neo-2.7B | 2.7B params | 9.9 GB
     - gpt2-xl      | 1.5B params | 6.0 GB
     - bloom-3b     | 3B params   | 5.6 GB
-    - opt-2.7b     | 2.7B params | 5.3 GB
+    - opt-2.7b     | 2.7B params | 4.9 GB
     - gpt-neo-1.3B | 1.3B params | 4.9 GB
     - gpt2-large   | 774M params | 3.0 GB
     - opt-1.3b     | 1.3B params | 2.5 GB
