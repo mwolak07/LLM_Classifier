@@ -2,9 +2,9 @@ from typing import List
 import unittest
 import json
 import os
-from src.dataset_llms import InferenceLLM
-from src.util import cd_from_root, get_ram_gb
-from test.dataset_llms import write_questions
+from src.dataset import InferenceLLM
+from src.util import cd_to_executing_file, get_ram_gb
+from generate_test_questions import write_questions
 
 
 class TestInferenceLLMUtils(unittest.TestCase):
@@ -36,7 +36,7 @@ class TestInferenceLLM(unittest.TestCase):
         max_question: The max-size question from test_questions.json.
         random_questions: The randomly sampled questions from test_questions.json.
     """
-    test_questions_path: str = './datasets/test_questions.json'
+    test_questions_path: str = 'test_questions.json'
     llm: InferenceLLM
     max_question: str
     random_questions: List[str]
@@ -50,9 +50,12 @@ class TestInferenceLLM(unittest.TestCase):
         Ensures test_questions.json exists and writes it if it does not.
         """
         # Cd to /test if we are at root.
-        cd_from_root('test')
+        cd_to_executing_file(__file__)
+        # Write questions if needed.
         if not os.path.exists(cls.test_questions_path):
             write_questions()
+        # Set up stack trace for CUDA errors.
+        os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
     def setUp(self):
         """

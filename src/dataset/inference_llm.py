@@ -1,7 +1,5 @@
-from transformers import PreTrainedTokenizer, PreTrainedModel
-from abc import ABC
-from typing import List
-from src.util import get_ram_gb
+
+
 
 
 class InferenceLLM(ABC):
@@ -10,12 +8,26 @@ class InferenceLLM(ABC):
 
     Attributes:
         _temperature: (class attribute) The temperature for the LLM.
-        _model: The model we will use to perform inference.
         _tokenizer: The model we will use to transform the input strings into vectors.
+        _model: The model we will use to perform inference.
     """
     _temperature: str = 0.9
     _model: PreTrainedModel
     _tokenizer: PreTrainedTokenizer
+
+    def __init__(self, model_name: str, run_on: str = 'cpu', torch_dtype: type = float32):
+        """
+        Initializes the model and tokenizer with the appropriate parameters for inference.
+
+        Args:
+            model_name: The name of the model to use. (ie. EleutherAI/gpt-neo-1.3B).
+            run_on: The device to run the model on. Can be 'cpu' or 'gpu'.
+            torch_dtype: The floating point type to use in the model. float16 can be specified for lower RAM use.
+        """
+        self.check_ram()
+        self._model = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-neo-1.3B", torch_dtype=float16)
+        self._tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-1.3B")
+        self.model_to_gpu()
 
     @staticmethod
     def check_ram(min_ram_gb: float) -> None:
@@ -28,7 +40,6 @@ class InferenceLLM(ABC):
         Raises:
             RuntimeError if there is not enough RAM.
         """
-        print(get_ram_gb())
         if get_ram_gb() < min_ram_gb:
             raise RuntimeError(f'Need at least {min_ram_gb} GB of RAM to initialize model! '
                                f'You have {get_ram_gb()} GB!')
@@ -37,11 +48,10 @@ class InferenceLLM(ABC):
         """
         Tries to assign the current model to the gpu.
         """
-        try:
-            self._model.to('gpu')
-        except RuntimeError as e:
-            if 'memory' in str(e):
-                print('WARNING! Could not move model to GPU. Inference will run on CPU.')
+        if torch.cuda.is_available():
+            self._model.to(torch.device('cuda'))
+        else:
+            print('WARNING! Could not move model to GPU. Inference will run on CPU.')
         
     def answer(self, question: str) -> str:
         """
@@ -55,6 +65,9 @@ class InferenceLLM(ABC):
         """
         # Tokenizing the input.
         input_token_ids = self._tokenizer(question, return_tensors="pt").input_ids
+        # Moving the input IDs to GPU if possible.
+        if torch.cuda.is_available():
+            input_token_ids = input_token_ids.to(torch.device('cuda'))
         # Performing the inference.
         output_tokens = self._model.generate(
             input_token_ids,
@@ -78,6 +91,9 @@ class InferenceLLM(ABC):
         """
         # Tokenizing the inputs.
         input_token_ids = self._tokenizer(questions, return_tensors='pt').input_ids
+        # Moving the input IDs to GPU if possible.
+        if torch.cuda.is_available():
+            input_token_ids = input_token_ids.to(torch.device('cuda'))
         # Performing the batch inference.
         output_tokens = self._model.generate(
             input_token_ids,

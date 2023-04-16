@@ -1,12 +1,13 @@
 import os
 
 
-def cd_from_root(folder: str) -> None:
+def cd_to_executing_file(file: str) -> None:
     """
-    Changes directories to given directory, if we are in the root directory.
+    Changes to the directory of the file currently being executed.
 
     Args:
-        folder: The folder on the root directory level that we want to cd into.
+        file: The name of the caller's file, (__file__)
     """
-    if folder in os.listdir():
-        os.chdir(folder)
+    executing_file = os.path.abspath(file)
+    executing_folder = os.path.dirname(executing_file)
+    os.chdir(executing_folder)

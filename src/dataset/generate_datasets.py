@@ -1,12 +1,6 @@
 import os
-from src.dataset import MSMarcoDataset, LLMClassifierDataset
-from src.dataset_llms import InferenceLLM, \
-                             InferenceGPTNeoX, \
-                             InferenceGPTJ6B, \
-                             InferenceGPTNeo27B, \
-                             InferenceGPTNeo13B, \
-                             InferenceGPT2XL
-from src.util import cd_from_root
+from src.util import cd_to_executing_file
+from src.dataset import MSMarcoDataset, InferenceLLM, LLMClassifierDataset
 
 
 def generate_dataset(train: bool, short_prompts: bool, llm: InferenceLLM, db_path: str) -> None:
@@ -21,11 +15,9 @@ def generate_dataset(train: bool, short_prompts: bool, llm: InferenceLLM, db_pat
         llm: The llm we will be using to do inference on our prompts.
         db_path: The path we will be writing our database to.
     """
-    # Cd to /src if we are at root.
-    cd_from_root('src')
     # Assume we are in the /src directory.
-    ms_marco_train = '../data/MS_MARCO/train_v2.1.json'
-    ms_marco_test = '../data/MS_MARCO/dev_v2.1.json'
+    ms_marco_train = '../../data/MS_MARCO/train_v2.1.json'
+    ms_marco_test = '../../data/MS_MARCO/dev_v2.1.json'
     # Deciding which ms_marco dataset to use based on train vs. test.
     ms_marco_path = ms_marco_train if train else ms_marco_test
     # Setting up the MSMarcoDataset and LLMClassifierDataset objects.
@@ -62,12 +54,13 @@ def generate_datasets():
     Generates a dataset for each inference llm:
 
     """
-    generate_datasets_for_llm(InferenceGPTNeoX(), '../data/gpt_neo_x')
-    generate_datasets_for_llm(InferenceGPTJ6B(), '../data/gpt_j_6b')
-    generate_datasets_for_llm(InferenceGPTNeo27B(), '../data/gpt_neo_2_7B')
-    generate_datasets_for_llm(InferenceGPTNeo13B(), '../data/gpt_neo_1_3B')
-    generate_datasets_for_llm(InferenceGPT2XL(), '../data/gpt2_xl')
+    generate_datasets_for_llm(InferenceGPTNeoX(), '../../data/gpt_neo_x')
+    generate_datasets_for_llm(InferenceGPTJ6B(), '../../data/gpt_j_6b')
+    generate_datasets_for_llm(InferenceGPTNeo27B(), '../../data/gpt_neo_2_7B')
+    generate_datasets_for_llm(InferenceGPTNeo13B(), '../../data/gpt_neo_1_3B')
+    generate_datasets_for_llm(InferenceGPT2XL(), '../../data/gpt2_xl')
 
 
 if __name__ == '__main__':
+    cd_to_executing_file(__file__)
     generate_datasets()
