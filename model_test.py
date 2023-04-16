@@ -25,7 +25,7 @@ prompt = "Using only the following context:\n" \
          "\n" \
          "The average starting salary for master's degree graduates can vary greatly based off of several factors, including the type of degree earned. For example, a computer science program graduate typically earns more than someone who graduates from a sociology program, even though they both hold a master's degree.he average starting salary for individuals with a master's degree depends on their field of study, among other factors.\n" \
          "\n" \
-         "The answer, in complete sentences, to the question, \"entry level income after doctorate degree?\", is:\n"
+         "The answer, in complete sentences, to the question: entry level income after doctorate degree?, is:\n"
 question = "The answer, in complete sentences, to the question, \"entry level income after doctorate degree?\", is:\n"
 
 
@@ -125,10 +125,10 @@ def test_model_gpu_prompt(model_name):
      7.) 
      8.) 
      9.) 
-    10.) 
-    11.) 
-    12.) 
-    13.) 
+    10.) Y, 1.2GB
+    11.) Y, 0.4GB
+    12.) N
+    13.) Y, 0.4GB
     """
     print(f'loading model {model_name}...')
     model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=float16).to(torch.device('cuda'))
@@ -140,7 +140,7 @@ def test_model_gpu_prompt(model_name):
     output = tokenizer.batch_decode(encoded_output)[0]
     print(output)
     print()
-    output = output.split('The answer, in complete sentences, to the question,')[1].split('is:')[1]
+    output = output.split('The answer, in complete sentences, to the question:')[1].split(', is:')[1]
     print(output)
 
 
@@ -158,7 +158,6 @@ model_names = [
     'facebook/opt-350m', 
     'EleutherAI/gpt-neo-125m', 
     'gpt2', 
-    'facebook/opt-125m',
-    'EleutherAI/gpt-j-6b'
+    'facebook/opt-125m'
 ]
 test_model_gpu_prompt(model_names[int(sys.argv[1])])

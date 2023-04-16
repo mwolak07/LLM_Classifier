@@ -135,7 +135,7 @@ class MSMarcoDataset(Sequence):
             output += passage + '\n\n'
         # Providing the model the query.
         query = element.query
-        output += f'The answer, in complete sentences, to the question, "{query}?", is:\n'
+        output += f'The answer, in complete sentences, to the question: {query}?, is:\n'
         return output
 
     def _load_data(self) -> List[MSMarcoItem]:

@@ -86,7 +86,7 @@ class InferenceLLM(ABC):
         any repeated sentences at the end of the output.
         """
         # Removing the context prompt.
-        answer = answer.split('The answer, in complete sentences, to the question,')[1].split(', is:')[1]
+        answer = answer.split('The answer, in complete sentences, to the question:')[1].split(', is:')[1]
         # Getting the sentences.
         sentences = nltk.tokenize.sent_tokenize(answer)
         if len(sentences) > 1:
