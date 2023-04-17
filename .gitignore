@@ -131,11 +131,8 @@ dmypy.json
 # Pycharm
 .idea
 
-# Dataset files
+# Large data files
+data/bloom_1_1B
+data/fasttext/
+data/opt_1_3B
 data/MS_MARCO
-data/gpt-neox_20B_checkpoints
-data/classifier-gpt-neox
-data/fasttext/cc.en.300.bin
-20B_checkpoints
-
-
