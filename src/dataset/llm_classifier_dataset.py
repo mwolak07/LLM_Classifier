@@ -112,6 +112,6 @@ class LLMClassifierDataset(Sequence, Dataset):
         self._db.add_ms_marco_dataset(ms_marco_dataset, short_prompts)
         # Getting all of the prompts for the LLM and adding its answers to the database.
         prompts = self._db.prompts()
-        max_answer_len = max([len(row.human_answer) for row in self._db])
+        max_answer_len = max([len(answer) for answer in self._db.human_answers()])
         llm_answers = llm.answers(prompts, max_answer_len=max_answer_len)
         self._db.add_llm_answers(llm_answers)
