@@ -102,7 +102,7 @@ class MSMarcoDataset(Sequence):
         """
         return self._data.copy()
 
-    def prompt(self, index: int, short: bool = False) -> str:
+    def prompt(self, index: int, short: bool = True) -> str:
         """
         Generates the language model prompt for the nth element in the dataset. This contains the context of the
         passages, an explanation of how to answer, and the question. The context can be all of the passages, or only

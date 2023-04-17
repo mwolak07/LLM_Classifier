@@ -15,6 +15,7 @@ def generate_dataset(train: bool, short_prompts: bool, llm: InferenceLLM, db_pat
         llm: The llm we will be using to do inference on our prompts.
         db_path: The path we will be writing our database to.
     """
+    cd_to_executing_file(__file__)
     # Assume we are in the /src directory.
     ms_marco_train = '../../data/MS_MARCO/train_v2.1.json'
     ms_marco_test = '../../data/MS_MARCO/dev_v2.1.json'
@@ -29,24 +30,18 @@ def generate_dataset(train: bool, short_prompts: bool, llm: InferenceLLM, db_pat
 
 def generate_datasets_for_llm(llm: InferenceLLM, db_folder: str) -> None:
     """
-    Generates 4 datasets:
-    - Training data with full-length prompts.
-    - Testing data with full-length prompts.
-    - Training data with short prompts.
+    Generates 2 datasets:
     - Testing data with short prompts.
+    - Training data with short prompts.
 
     Args:
         llm: The LLM we will use to answer the prompts.
         db_folder: The folder we will be writing our databases to.
     """
-    generate_dataset(train=True, short_prompts=False, llm=llm,
-                     db_path=os.path.join(db_folder, 'train_full_prompts.sqlite3'))
-    generate_dataset(train=False, short_prompts=False, llm=llm,
-                     db_path=os.path.join(db_folder, 'test_full_prompts.sqlite3'))
-    generate_dataset(train=True, short_prompts=True, llm=llm,
-                     db_path=os.path.join(db_folder, 'train_short_prompts.sqlite3'))
     generate_dataset(train=False, short_prompts=True, llm=llm,
                      db_path=os.path.join(db_folder, 'test_short_prompts.sqlite3'))
+    generate_dataset(train=True, short_prompts=True, llm=llm,
+                     db_path=os.path.join(db_folder, 'train_short_prompts.sqlite3'))
     
 
 def generate_datasets():
@@ -56,9 +51,7 @@ def generate_datasets():
     """
     generate_datasets_for_llm(InferenceLLM('facebook/opt-1.3b'), '../../data/opt_1_3B')
     generate_datasets_for_llm(InferenceLLM('bigscience/bloom-1b1'), '../../data/bloom_1_1B')
-    generate_datasets_for_llm(InferenceLLM('EleutherAI/gpt-neo-1.3B'), '../../data/gpt_neo_1_3B')
 
 
 if __name__ == '__main__':
-    cd_to_executing_file(__file__)
     generate_datasets()

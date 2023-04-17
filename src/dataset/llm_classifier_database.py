@@ -1,21 +1,10 @@
 from __future__ import annotations
-from sqlalchemy import Integer, String, Boolean, Table, Column, MetaData,\
-    create_engine, insert, update, select, func
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.engine.interfaces import Dialect
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.types import TypeDecorator, String as StringType
-from sqlalchemy.exc import NoSuchTableError
-from sqlalchemy.engine import Engine
 from typing import Any, Optional, List, Tuple, Dict, Type
 from collections.abc import Sequence
 from dataclasses import dataclass
+from sqlite3 import connect, Connection, Cursor
 import json
 from src.dataset import MSMarcoDataset
-
-
-# Calling the sqlalchemy factory function for creating a base class for our tables.
-Base = declarative_base()
 
 
 @dataclass
@@ -38,10 +27,9 @@ class LLMClassifierDatabase(Sequence):
     the GPT LLM classification problem.
     Uses sqlalchemy for storing and loading the relevant info to/from an sqlite3 database.
     """
-    _engine: Engine
-    _session: Session
-    _llm_classifier_table: Table
-    _metadata: MetaData
+    _table: str = 'llm_classifier_data'
+    _connection: Connection
+    _cursor: Cursor
 
     def __init__(self, db_path: str):
         """
@@ -51,65 +39,31 @@ class LLMClassifierDatabase(Sequence):
         Args:
             db_path: The location on disk or the network of the database.
         """
-        self._metadata = MetaData()
-        self._engine, self._session, self._table = self._connect_to_db(db_path)
 
-    def _connect_to_db(self, db_loc: str) -> Tuple[Engine, Session, Table]:
+        self._connection = connect(db_path)
+        self._cursor = self._connection.cursor()
+
+    def _create_table(self):
         """
-        Connects to the database at the location specified. If the llm_classifier_data table is not already there,
-        creates it.
-
-        Args:
-            db_loc: The location on disk or the network of the database.
-
-        Returns:
-            The Session created after connecting to the database.
+        Creates self._table in the database if it does not already exist.
         """
-        engine = create_engine(db_loc)  # Connecting to our database, creating the file if needed.
-        BoundSession = sessionmaker(bind=engine)  # Creating a Session class bound to our engine.
-        session = BoundSession()
-        table = self._get_table(engine)
-        return engine, session, table
+        # Setting up oir statement.
+        statement = f'CREATE TABLE "{self._table}" (' \
+                    f'  id int primary_key,' \
+                    f''
+        # Checking if the table exists
+        if not self._table_exists():
 
-    def _get_table(self, engine: Engine) -> Table:
-        """
-        Gets the Table object from the database
-        If the llm_classifier_data table exists, gets the Table object from the database.
-        If not, creates the llm_classifier_data table in the database.
-
-        Args:
-            engine: The sqlalchemy engine that handles our database.
-
-        Returns:
-            The Table object corresponding to the llm_classifier_data table in the database.
-        """
-        table_name = 'llm_classifier_data'
-        # Trying to get the table from the database.
-        try:
-            table = Table(table_name, self._metadata, autoload_with=engine)
-        except NoSuchTableError:
-            table = Table(table_name, self._metadata,
-                          Column('id', Integer, primary_key=True),
-                          Column('query', String),
-                          Column('passages', _JsonList),
-                          Column('chosen_passages', _JsonList),
-                          Column('prompt', String),
-                          Column('human_answer', String),
-                          Column('llm_answer', String),
-                          Column('has_answer', Boolean)
-                          )
-            self._metadata.create_all(engine)
-        return table
 
     def __del__(self):
         """
         Deletes this GPTClassifierDataset object. Makes sure we commit any pending changes and disconnect from the
         database.
         """
-        self._session.commit()
-        self._session.close()
+        self._connection.commit()
+        self._connection.close()
 
-    def add_ms_marco_dataset(self, dataset: MSMarcoDataset, short_prompts: bool = False) -> None:
+    def add_ms_marco_dataset(self, dataset: MSMarcoDataset, short_prompts: bool = True) -> None:
         """
         Adds the elements from the given MS Marco dataset to the database. This will populate all of the columns except
         for 'llm_answer', which it will leave blank. The id will be the index in the dataset.
@@ -135,7 +89,7 @@ class LLMClassifierDatabase(Sequence):
         self._session.commit()
 
     @staticmethod
-    def _ms_marco_item_to_rows(index: int, dataset: MSMarcoDataset, short_prompts: bool = False) \
+    def _ms_marco_item_to_rows(index: int, dataset: MSMarcoDataset, short_prompts: bool = True) \
             -> List[Dict[str, Any]]:
         """
         Converts the MS Marco element at the given index in the dataset to an dict, which represents the value for each

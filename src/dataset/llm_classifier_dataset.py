@@ -59,7 +59,7 @@ class LLMClassifierDataset(Sequence, Dataset):
         else:
             return data
 
-    def create_database(self, ms_marco_dataset: MSMarcoDataset, llm: InferenceLLM, short_prompts: bool = False) -> None:
+    def create_database(self, ms_marco_dataset: MSMarcoDataset, llm: InferenceLLM, short_prompts: bool = True) -> None:
         """
         Creates the database. This uses the MS_Marco dataset along with the llm to:
         - Insert the context and human answers to the database
@@ -77,7 +77,8 @@ class LLMClassifierDataset(Sequence, Dataset):
         self._db.add_ms_marco_dataset(ms_marco_dataset, short_prompts)
         # Getting all of the prompts for the LLM and adding its answers to the database.
         prompts = self._db.prompts()
-        llm_answers = llm.answers(prompts)
+        max_answer_len = [len(row.human_answer) for row in self._db]
+        llm_answers = llm.answers(prompts, max_answer_len=max_answer_len)
         self._db.add_llm_answers(llm_answers)
 
     def __getitem__(self, index: int) -> Tuple[Feature, int]:

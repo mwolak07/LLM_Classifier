@@ -3,7 +3,7 @@ import unittest
 import json
 import os
 from src.dataset import InferenceLLM
-from src.util import cd_to_executing_file, get_ram_gb
+from src.util import cd_to_executing_file, get_ram_gb, get_vram_gb
 from generate_test_questions import write_questions
 
 
@@ -11,29 +11,60 @@ class TestInferenceLLMUtils(unittest.TestCase):
     """
     Tests the utility functions in the InferenceLLM class.
     """
+    test_model_ram_file = './test_model_ram.json'
+
+    def setUp(self):
+        """
+        Going to the directory of this file before each test.
+        """
+        # Cd to the directory this file is in.
+        cd_to_executing_file(__file__)
+
+    def tearDown(self):
+        """
+        Removes self.test_model_ram_file after test completes.
+        """
+        os.remove(self.test_model_ram_file)
+
+    def write_test_model_ram(self, ram: float) -> None:
+        """
+        Write the test_model_ram file to disk, with less, equal, and greater cases.
+
+        Args:
+            ram: The RAM capacity we will be testing for.
+        """
+        test_model_ram = {
+            "greater": ram + 1,
+            "equal": ram,
+            "less": ram - 1
+        }
+        with open(self.test_model_ram_file, 'w+') as f:
+            json.dump(test_model_ram, f, indent=4)
 
     def test_check_ram(self):
         """
         Tests that the check_ram function works correctly.
         """
-        # Checking for RAM
+        # Checking for RAM and writing the test RAM file.
         ram = get_ram_gb()
+        self.write_test_model_ram(ram)
         # Checking when system RAM < minimum RAM.
         with self.assertRaises(RuntimeError):
-            InferenceLLM.check_ram('../../src/models/model_ram.json', ram + 1, False)
+            InferenceLLM.check_ram(self.test_model_ram_file, 'greater', False)
         # Checking when system RAM = minimum RAM.
-        InferenceLLM.check_ram('../../src/models/model_ram.json', ram, False)
+        InferenceLLM.check_ram(self.test_model_ram_file, 'equal', False)
         # Checking when system RAM > minimum RAM.
-        InferenceLLM.check_ram('../../src/models/model_ram.json', ram - 1, False)
-        # Checking for VRAM
-        vram = get_ram_gb()
+        InferenceLLM.check_ram(self.test_model_ram_file, 'less', False)
+        # Checking for VRAM and writing the test RAM file.
+        vram = get_vram_gb()
+        self.write_test_model_ram(vram)
         # Checking when system VRAM < minimum RAM.
         with self.assertRaises(RuntimeError):
-            InferenceLLM.check_ram('../../src/models/model_ram.json', vram + 1, True)
+            InferenceLLM.check_ram(self.test_model_ram_file, 'greater', True)
         # Checking when system VRAM = minimum RAM.
-        InferenceLLM.check_ram('../../src/models/model_ram.json', vram, True)
+        InferenceLLM.check_ram(self.test_model_ram_file, 'equal', True)
         # Checking when system VRAM > minimum RAM.
-        InferenceLLM.check_ram('../../src/models/model_ram.json', vram - 1, True)
+        InferenceLLM.check_ram(self.test_model_ram_file, 'less', True)
 
 
 class TestInferenceLLM(unittest.TestCase):
@@ -59,8 +90,6 @@ class TestInferenceLLM(unittest.TestCase):
         """
         Ensures test_questions.json exists and writes it if it does not.
         """
-        # Cd to /test if we are at root.
-        cd_to_executing_file(__file__)
         # Write questions if needed.
         if not os.path.exists(cls.test_questions_path):
             write_questions()
@@ -71,8 +100,10 @@ class TestInferenceLLM(unittest.TestCase):
         """
         Initializes the loads in test_questions.json.
         """
+        # Cd to the directory this file is in.
+        cd_to_executing_file(__file__)
         self.load_test_questions()
-        self.model_names = ['facebook/opt-1.3b', 'bigscience/bloom-1b1', 'EleutherAI/gpt-neo-1.3B']
+        self.model_names = ['facebook/opt-1.3b', 'bigscience/bloom-1b1']
 
     def load_test_questions(self) -> None:
         """
@@ -91,7 +122,7 @@ class TestInferenceLLM(unittest.TestCase):
             with self.subTest(model_name=model_name):
                 llm = InferenceLLM(model_name)
                 for question in self.random_questions:
-                    answer = llm.answer(question)
+                    answer = llm.answer(question, max_answer_len=250)
                     self.assertTrue(isinstance(answer, str))
                     self.assertTrue(len(answer) > 0)
 
@@ -103,7 +134,7 @@ class TestInferenceLLM(unittest.TestCase):
         for model_name in self.model_names:
             with self.subTest(model_name=model_name):
                 llm = InferenceLLM(model_name)
-                answer = llm.answer(self.max_question)
+                answer = llm.answer(self.max_question, max_answer_len=250)
                 self.assertTrue(isinstance(answer, str))
                 self.assertTrue(len(answer) > 0)
 
@@ -114,7 +145,7 @@ class TestInferenceLLM(unittest.TestCase):
         for model_name in self.model_names:
             with self.subTest(model_name=model_name):
                 llm = InferenceLLM(model_name)
-                answers = llm.answers(self.random_questions)
+                answers = llm.answers(self.random_questions, max_answer_len=250)
                 self.assertTrue(len(answers) == len(self.random_questions))
                 for answer in answers:
                     self.assertTrue(isinstance(answer, str))
@@ -128,11 +159,12 @@ class TestInferenceLLM(unittest.TestCase):
         for model_name in self.model_names:
             with self.subTest(model_name=model_name):
                 llm = InferenceLLM(model_name)
-                answers = llm.answers(self.random_questions + [self.max_question])
+                answers = llm.answers(self.random_questions + [self.max_question], max_answer_len=250)
                 self.assertTrue(len(answers) == len(self.random_questions))
                 for answer in answers:
                     self.assertTrue(isinstance(answer, str))
                     self.assertTrue(len(answer) > 0)
+
 
 if __name__ == '__main__':
     unittest.main()

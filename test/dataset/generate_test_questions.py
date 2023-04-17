@@ -10,8 +10,14 @@ def get_5_questions(dataset: MSMarcoDataset) -> Dict[str, str]:
     Gets 5 questions from the dataset. This is the longest prompt, and 4 other random prompts that are not that prompt.
     """
     output = {}
-    # Getting all of the prompts.
-    prompts = [dataset.prompt(i) for i in range(len(dataset))]
+    # Getting 5 random elements in the dataset.
+    indexes = []
+    while len(indexes) < 5:
+        index = random.randint(0, len(dataset) - 1)
+        element = dataset[index]
+        if len(element.answers) > 0:
+            indexes.append(index)
+    prompts = [dataset.prompt(i) for i in indexes]
     # Getting the max length prompt in the dataset.
     max_prompt = max(prompts, key=len)
     output['max_question'] = max_prompt

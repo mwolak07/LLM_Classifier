@@ -4,7 +4,8 @@ from typing import List
 from abc import ABC
 import nltk
 import json
-from src.util import get_ram_gb, get_vram_gb
+import time
+from src.util import cd_to_executing_file, get_ram_gb, get_vram_gb
 
 
 # Downloading the nltk sentence tokenizer
@@ -36,6 +37,8 @@ class InferenceLLM(ABC):
             torch_dtype: The floating point type to use in the model. float32 can be specified for better performance
                          at the cost of higher RAM use.
         """
+        # Ensuring we are in the correct directory.
+        cd_to_executing_file(__file__)
         # Checking if the gpu is available.
         if use_gpu and cuda.is_available():
             self._use_gpu = True
@@ -122,25 +125,11 @@ class InferenceLLM(ABC):
         Returns:
             The answers given by the LLM.
         """
-        # Encoding the input.
-        encoded_inputs = self._tokenizer(questions, return_tensors="pt", return_attention_mask=True)
-        # Unpacking the input and moving tensors to the GPU if needed.
-        input_ids = encoded_inputs.input_ids.to(device('cuda')) if self._use_gpu \
-            else encoded_inputs.input_ids
-        attention_mask = encoded_inputs.attention_mask(device('cuda')) if self._use_gpu \
-            else encoded_inputs.attention_mask
-        # Performing the inference.
-        encoded_output = self._model.generate(
-            input_ids,
-            do_sample=True,
-            max_new_tokens=max_answer_len,
-            attention_mask=attention_mask
-        )
-        # Getting text back from the tokenized output.
-        answers = self._tokenizer.batch_decode(encoded_output)
-        # Post-processing the answer.
-        processed_answers = [self.postprocess_answer(answer) for answer in answers]
-        return processed_answers
+        answers = []
+        for i in range(len(questions)):
+            t = time.time()
+            answers.append(self.answer(questions[i], max_answer_len))
+            print(f'Generated sample {i}/{len(questions)} in {time.time() - t}s')
 
     def answer(self, question: str, max_answer_len: int) -> str:
         """
@@ -153,4 +142,22 @@ class InferenceLLM(ABC):
         Returns:
             The answer given by the LLM.
         """
-        return self.answers([question], max_answer_len)[0]
+        # Encoding the input.
+        encoded_input = self._tokenizer(question, return_tensors="pt", return_attention_mask=True)
+        # Unpacking the input and moving tensors to the GPU if needed.
+        input_ids = encoded_input.input_ids.to(device('cuda')) if self._use_gpu \
+            else encoded_input.input_ids
+        attention_mask = encoded_input.attention_mask.to(device('cuda')) if self._use_gpu \
+            else encoded_input.attention_mask
+        # Performing the inference.
+        encoded_output = self._model.generate(
+            input_ids,
+            do_sample=True,
+            max_new_tokens=max_answer_len,
+            attention_mask=attention_mask
+        )
+        # Getting text back from the tokenized output.
+        answer = self._tokenizer.batch_decode(encoded_output)[0]
+        # Post-processing the answer.
+        processed_answer = self.postprocess_answer(answer)
+        return processed_answer
