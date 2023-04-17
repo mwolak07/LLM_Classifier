@@ -6,15 +6,23 @@ This repo contains the code for a large language model (LLM) output classificati
 
 This is a list of useful commands. These are to be executed from the project root directory.
 - Generating env requirements:
-  - Conda: conda env export > environment.yml
+  - `conda env export > environment.yml`
 - Installing from generated env requirements:
-  - Conda: conda env update --file environment.yml
+  - `conda env update --file environment.yml`
 - Generating the databases in /data/llm_classifier:
-  - python3 src/datasets/generate_datasets.py
+  - `python src/datasets/generate_datasets.py`
 - Generating the test prompts:
-  - python3 test/datasets/generate_test_questions.py
+  - `python test/datasets/generate_test_questions.py`
 - Downloading pretrained huggingface models:
-  - python3 src/models/download_huggingface_models.py
+  - `python src/models/download_huggingface_models.py`
+
+## Environment:
+
+The specs for the env are stored in environment.yml. This makes it easy to use with conda. If you would like to install
+everything manually, the command is:
+- `conda install python=3.9 pytorch=2.0 torchvision torchaudio pytorch-cuda=11.8 tensorflow=2.9 transformers 
+huggingface_hub tokenizers pytorch-lightning matplotlib numpy pandas nltk scikit-learn gensim -c pytorch -c nvidia 
+-c HuggingFace -c anaconda -c conda-forge`
 
 ## Refences:
 @software{gpt-neox-library,

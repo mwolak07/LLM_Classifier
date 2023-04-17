@@ -8,10 +8,6 @@ import time
 from src.util import cd_to_executing_file, get_ram_gb, get_vram_gb
 
 
-# Downloading the nltk sentence tokenizer
-nltk.download('punkt')
-
-
 class InferenceLLM(ABC):
     """
     Represents an interface for LLMs which we can use for inference when generating the dataset. The particular LLM

@@ -59,28 +59,6 @@ class LLMClassifierDataset(Sequence, Dataset):
         else:
             return data
 
-    def create_database(self, ms_marco_dataset: MSMarcoDataset, llm: InferenceLLM, short_prompts: bool = True) -> None:
-        """
-        Creates the database. This uses the MS_Marco dataset along with the llm to:
-        - Insert the context and human answers to the database
-        - Get the prompts for each element in the database
-        - Generate the llm answers using the prompts and the llm
-        - Insert the llm answers into the database.
-
-        Args:
-            ms_marco_dataset: The MS_Marco dataset we are using to build the gpt classifier dataset.
-            llm: The large language model that will be answering the prompts for comparison with human answers.
-            short_prompts: If this is True, we will use only the chosen passages in the prompts, and "no answer" cases
-                           will be excluded. This will remove the "no answer" instruction from the prompt as well.
-        """
-        # Adding MS Marco to the database.
-        self._db.add_ms_marco_dataset(ms_marco_dataset, short_prompts)
-        # Getting all of the prompts for the LLM and adding its answers to the database.
-        prompts = self._db.prompts()
-        max_answer_len = [len(row.human_answer) for row in self._db]
-        llm_answers = llm.answers(prompts, max_answer_len=max_answer_len)
-        self._db.add_llm_answers(llm_answers)
-
     def __getitem__(self, index: int) -> Tuple[Feature, int]:
         """
         Gets the item at the given index in this dataset. This item is a tuple of the feature and the label.
@@ -115,3 +93,25 @@ class LLMClassifierDataset(Sequence, Dataset):
             The number of elements in this dataset.
         """
         return len(self._db) * 2
+
+    def create_database(self, ms_marco_dataset: MSMarcoDataset, llm: InferenceLLM, short_prompts: bool = True) -> None:
+        """
+        Creates the database. This uses the MS_Marco dataset along with the llm to:
+        - Insert the context and human answers to the database
+        - Get the prompts for each element in the database
+        - Generate the llm answers using the prompts and the llm
+        - Insert the llm answers into the database.
+
+        Args:
+            ms_marco_dataset: The MS_Marco dataset we are using to build the gpt classifier dataset.
+            llm: The large language model that will be answering the prompts for comparison with human answers.
+            short_prompts: If this is True, we will use only the chosen passages in the prompts, and "no answer" cases
+                           will be excluded. This will remove the "no answer" instruction from the prompt as well.
+        """
+        # Adding MS Marco to the database.
+        self._db.add_ms_marco_dataset(ms_marco_dataset, short_prompts)
+        # Getting all of the prompts for the LLM and adding its answers to the database.
+        prompts = self._db.prompts()
+        max_answer_len = max([len(row.human_answer) for row in self._db])
+        llm_answers = llm.answers(prompts, max_answer_len=max_answer_len)
+        self._db.add_llm_answers(llm_answers)

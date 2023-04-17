@@ -1,6 +1,7 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import time
 import os
+import nltk
 
 
 def model_path_in_cache(model_path: str) -> bool:
@@ -82,4 +83,5 @@ def download_huggingface_models() -> None:
 
 
 if __name__ == '__main__':
+    nltk.download('punkt')
     download_huggingface_models()
