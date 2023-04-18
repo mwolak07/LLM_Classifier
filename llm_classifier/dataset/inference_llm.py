@@ -5,7 +5,7 @@ from abc import ABC
 import nltk
 import json
 import time
-from src.util import cd_to_executing_file, get_ram_gb, get_vram_gb
+from llm_classifier.util import cd_to_executing_file, get_ram_gb, get_vram_gb
 
 
 class InferenceLLM(ABC):

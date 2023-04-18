@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple, Union
 from collections.abc import Sequence
 from torch.utils.data import Dataset
 from numpy import ndarray
-from src.dataset import LLMClassifierDatabase, InferenceLLM, MSMarcoDataset
+from llm_classifier.dataset import LLMClassifierDatabase, InferenceLLM, MSMarcoDataset
 
 
 # Storing the type definition for a Feature, to make things simpler.
@@ -110,6 +110,8 @@ class LLMClassifierDataset(Sequence, Dataset):
         """
         # Adding MS Marco to the database.
         self._db.add_ms_marco_dataset(ms_marco_dataset, short_prompts)
+        # Clearing the MS_MARCO dataset out of memory, since all of that is in the database now.
+        del ms_marco_dataset
         # Getting all of the prompts for the LLM and adding its answers to the database.
         prompts = self._db.prompts()
         max_answer_len = max([len(answer) for answer in self._db.human_answers()])

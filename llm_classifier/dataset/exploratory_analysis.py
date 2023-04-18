@@ -1,11 +1,11 @@
 from sklearn.feature_extraction.text import TfidfVectorizer
 from matplotlib import pyplot as plt
-from src.datasets import MSMarcoDataset
 import seaborn as sns
 import pandas as pd
 import random
 import json
 import sys
+from llm_classifier.dataset import MSMarcoDataset
 
 
 """

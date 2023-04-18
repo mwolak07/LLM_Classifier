@@ -2,9 +2,9 @@ from typing import List
 import unittest
 import json
 import os
-from src.dataset import InferenceLLM
-from src.util import cd_to_executing_file, get_ram_gb, get_vram_gb
-from generate_test_questions import write_questions
+from llm_classifier.util import cd_to_executing_file, get_ram_gb, get_vram_gb
+from llm_classifier.dataset import InferenceLLM
+from test.dataset.generate_test_questions import write_questions
 
 
 class TestInferenceLLMUtils(unittest.TestCase):
@@ -77,7 +77,7 @@ class TestInferenceLLM(unittest.TestCase):
         max_question: The max-size question from test_questions.json.
         random_questions: The randomly sampled questions from test_questions.json.
     """
-    test_questions_path: str = 'test_questions.json'
+    test_questions_path: str = 'mock_question_data.json'
     llm: InferenceLLM
     max_question: str
     random_questions: List[str]

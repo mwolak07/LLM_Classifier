@@ -3,7 +3,7 @@ from sqlite3 import connect, Connection, Cursor
 from collections.abc import Sequence
 from dataclasses import dataclass
 import json
-from src.dataset import MSMarcoDataset
+from llm_classifier.dataset import MSMarcoDataset
 
 
 @dataclass
@@ -61,8 +61,8 @@ class LLMClassifierDatabase(Sequence):
         Returns:
             A GPTClassifierItem, which represents one row in our database.
         """
-        statement = 'SELECT (:cols) FROM :table WHERE id=:id;'
-        values = {'cols': self.columns_json_extract(), 'table': self._table, 'id': index}
+        statement = f'SELECT (:cols) FROM {self._table} WHERE id=:id;'
+        values = {'cols': self.columns_json_extract(), 'id': index}
         result = self.execute(statement, values).fetchone()
         return self.decode_row(result)
 
@@ -73,12 +73,11 @@ class LLMClassifierDatabase(Sequence):
         Returns:
             The number of rows in the table.
         """
-        statement = 'SELECT COUNT(*) FROM :table;'
-        values = {'table': self._table}
-        result = self.execute(statement, values).fetchone()
+        statement = f'SELECT COUNT(*) FROM {self._table};'
+        result = self.execute(statement).fetchone()
         return result
 
-    def execute(self, sql: str, parameters: Iterable[Any] = None) -> Cursor:
+    def execute(self, sql: str, parameters: Iterable[Any] = ()) -> Cursor:
         """
         Uses the internal self._cursor to execute an SQL statement on the database. Supports exactly the same
         functionality as sqlite3.Cursor.execute().
@@ -92,7 +91,7 @@ class LLMClassifierDatabase(Sequence):
         """
         return self._connection.execute(sql, parameters)
 
-    def executemany(self, sql: str, parameters: Iterable[Iterable[Any]] = None) -> Cursor:
+    def executemany(self, sql: str, parameters: Iterable[Iterable[Any]] = ()) -> Cursor:
         """
         Uses the internal self._cursor to execute an SQL statement multiple times for a list of parameters on the
         database. Supports exactly the same functionality as sqlite3.Cursor.executemany().
@@ -168,9 +167,8 @@ class LLMClassifierDatabase(Sequence):
         Returns:
             True if self._table is already in the database, False if it is not.
         """
-        statement = 'SELECT COUNT(*) FROM sqlite_schema WHERE type="table" AND name=:table;'
-        values = {'table': self._table}
-        result = self.execute(statement, values).fetchone()
+        statement = f'SELECT name FROM sqlite_schema WHERE type="table" AND name={self._table};'
+        result = self.execute(statement).fetchone()
         return result > 0
 
     def _create_table(self) -> None:
@@ -178,20 +176,19 @@ class LLMClassifierDatabase(Sequence):
         Creates self._table in the database if it does not already exist.
         """
         # Setting up oir statement.
-        statement = 'CREATE TABLE :table (' \
-                    '  id INTEGER PRIMARY KEY NOT NULL,' \
-                    '  query TEXT,' \
-                    '  passages TEXT,' \
-                    '  chosen_passages TEXT,' \
-                    '  prompt TEXT,' \
-                    '  human_answer TEXT,' \
-                    '  llm_answer TEXT,' \
-                    '  has_answer INTEGER' \
-                    ');'
-        values = {'table': self._table}
+        statement = f'CREATE TABLE {self._table} (' \
+                    f'  id INTEGER AUTOINCREMENT PRIMARY KEY NOT NULL,' \
+                    f'  query TEXT,' \
+                    f'  passages TEXT,' \
+                    f'  chosen_passages TEXT,' \
+                    f'  prompt TEXT,' \
+                    f'  human_answer TEXT,' \
+                    f'  llm_answer TEXT,' \
+                    f'  has_answer INTEGER' \
+                    f');'
         # Checking if the table exists
         if not self._table_exists():
-            self.execute(statement, values)
+            self.execute(statement)
             self.commit()
 
     def add_ms_marco_dataset(self, dataset: MSMarcoDataset, short_prompts: bool = True) -> None:
@@ -214,16 +211,17 @@ class LLMClassifierDatabase(Sequence):
         if len(self) != 0:
             raise RuntimeError('Table is not empty!')
         # Creating the statement to be executed many times
-        statement = 'INSERT INTO :table (id, query, passages, chosen_passages, prompt, human_answer, has_answer)' \
-                    'VALUES (' \
-                    '   :id, ' \
-                    '   :query, ' \
-                    '   json_array(:passages), ' \
-                    '   json_array(:chosen_passages), ' \
-                    '   :prompt,' \
-                    '   :human_answer,' \
-                    '   :has_answer' \
-                    ');'
+        statement = f'INSERT INTO {self._table}' \
+                    f'(id, query, passages, chosen_passages, prompt, human_answer, has_answer)' \
+                    f'VALUES (' \
+                    f'   :id, ' \
+                    f'   :query, ' \
+                    f'   json_array(:passages), ' \
+                    f'   json_array(:chosen_passages), ' \
+                    f'   :prompt,' \
+                    f'   :human_answer,' \
+                    f'   :has_answer' \
+                    f');'
         # Getting the values by flattening the output of the values dicts for each row from self._ms_marco_item_to_rows.
         values_list = [values for i in range(len(dataset))
                        for values in self._ms_marco_item_to_rows(i, dataset, short_prompts)]
@@ -255,8 +253,6 @@ class LLMClassifierDatabase(Sequence):
         for answer in item.answers:
             # Adding the new values as a values dict to our output.
             values = {
-                'table': self._table,
-                'id': index,
                 'query': dataset[index].query,
                 'passages': json.dumps(dataset[index].passages),
                 'chosen_passages': json.dumps(dataset[index].chosen_passages),
@@ -268,8 +264,6 @@ class LLMClassifierDatabase(Sequence):
         # Generating an entry with has_answer = False, if there is no answer, and we are not using short prompts.
         if len(item.answers) == 0 and not short_prompts:
             values = {
-                'table': self._table,
-                'id': index,
                 'query': dataset[index].query,
                 'passages': json.dumps(dataset[index].passages),
                 'chosen_passages': json.dumps(dataset[index].chosen_passages),
@@ -297,9 +291,9 @@ class LLMClassifierDatabase(Sequence):
         if len(self):
             raise RuntimeError('Table is empty!')
         # Creating the statement.
-        statement = 'UPDATE :table SET llm_answer = :llm_answer WHERE id = :id;'
+        statement = f'UPDATE {self._table} SET llm_answer = :llm_answer WHERE id = :id;'
         # Getting a list of values objects
-        values_list = [{'table': self._table, 'llm_answer': answers[i], 'id': i} for i in range(len(answers))]
+        values_list = [{'llm_answer': answers[i], 'id': i} for i in range(len(answers))]
         # Executing the statement for all values in the list
         self.executemany(statement, values_list)
         self.commit()
@@ -311,9 +305,8 @@ class LLMClassifierDatabase(Sequence):
         Returns:
             A list of prompts, ordered by increasing row 'id'.
         """
-        statement = 'SELECT (prompt) FROM :table ORDER BY id;'
-        values = {'table': self._table}
-        result = self.execute(statement, values).fetchall()
+        statement = f'SELECT (prompt) FROM {self._table} ORDER BY id;'
+        result = self.execute(statement).fetchall()
         return list(result)
 
     def human_answers(self) -> List[str]:
@@ -323,9 +316,8 @@ class LLMClassifierDatabase(Sequence):
         Returns:
             A list of human answers, ordered by increasing row 'id'.
         """
-        statement = 'SELECT (human_answer) FROM :table ORDER BY id;'
-        values = {'table': self._table}
-        result = self.execute(statement, values).fetchall()
+        statement = f'SELECT (human_answer) FROM {self._table} ORDER BY id;'
+        result = self.execute(statement).fetchall()
         return list(result)
 
     def llm_answers(self) -> List[str]:
@@ -335,9 +327,8 @@ class LLMClassifierDatabase(Sequence):
         Returns:
             A list of llm answers, ordered by increasing row 'id'.
         """
-        statement = 'SELECT (llm_answer) FROM :table ORDER BY id;'
-        values = {'table': self._table}
-        result = self.execute(statement, values).fetchall()
+        statement = f'SELECT (llm_answer) FROM {self._table} ORDER BY id;'
+        result = self.execute(statement).fetchall()
         return list(result)
 
     def clear(self) -> None:
@@ -347,7 +338,6 @@ class LLMClassifierDatabase(Sequence):
         choice = input('WARNING: You are deleting the database. Are you SURE this is your intention? (y/n): ')
         if choice != 'y':
             return
-        statement = 'DROP TABLE :table;'
-        values = {'table': self._table}
-        self.execute(statement, values)
+        statement = f'DROP TABLE {self._table};'
+        self.execute(statement)
         self.commit()

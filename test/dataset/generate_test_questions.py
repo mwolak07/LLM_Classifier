@@ -1,8 +1,8 @@
 from typing import Dict
 import random
 import json
-from src.dataset import MSMarcoDataset
-from src.util import cd_to_executing_file
+from llm_classifier.util import cd_to_executing_file
+from llm_classifier.dataset import MSMarcoDataset
 
 
 def get_5_questions(dataset: MSMarcoDataset) -> Dict[str, str]:
@@ -10,20 +10,19 @@ def get_5_questions(dataset: MSMarcoDataset) -> Dict[str, str]:
     Gets 5 questions from the dataset. This is the longest prompt, and 4 other random prompts that are not that prompt.
     """
     output = {}
-    # Getting 5 random elements in the dataset.
+    # Getting the longest prompt in the dataset.
+    max_prompt = max([dataset.prompt(i, short=False) for i in range(len(dataset))], key=len)
+    output['max_question'] = max_prompt
+    # Getting 4 random elements in the dataset that have answers.
     indexes = []
-    while len(indexes) < 5:
+    while len(indexes) <= 4:
         index = random.randint(0, len(dataset) - 1)
         element = dataset[index]
         if len(element.answers) > 0:
             indexes.append(index)
-    prompts = [dataset.prompt(i) for i in indexes]
-    # Getting the max length prompt in the dataset.
-    max_prompt = max(prompts, key=len)
-    output['max_question'] = max_prompt
-    # Getting the sample of 4 other prompts in the dataset.
-    prompts.remove(max_prompt)
-    output['random_questions'] = random.sample(prompts, 4)
+    # Getting the prompts for those 4 elements.
+    random_prompts = [dataset.prompt(i) for i in indexes]
+    output['random_questions'] = random_prompts
     return output
 
 
@@ -36,7 +35,7 @@ def write_questions() -> None:
     # Assume we are running from the /test directory.
     train_file = '../../data/MS_MARCO/train_v2.1.json'
     test_file = '../../data/MS_MARCO/dev_v2.1.json'
-    output_file = 'test_questions.json'
+    output_file = 'mock_question_data.json'
     output = {}
 
     # Getting the prompts from the training set.
