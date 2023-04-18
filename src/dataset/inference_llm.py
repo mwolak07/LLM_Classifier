@@ -83,6 +83,12 @@ class InferenceLLM(ABC):
         """
         Post-processes an answer. This involves removing the last sentence if it cut off part way through, and removing
         any repeated sentences at the end of the output.
+
+        Args:
+            answer: The answer we are post-processing.
+
+        Returns:
+            The post-processed answer.
         """
         # Removing the context prompt.
         answer = answer.split('The answer, in complete sentences, to the question:')[1].split(', is:')[1]
@@ -125,7 +131,7 @@ class InferenceLLM(ABC):
         for i in range(len(questions)):
             t = time.time()
             answers.append(self.answer(questions[i], max_answer_len))
-            print(f'Generated sample {i}/{len(questions)} in {time.time() - t}s')
+            print(f'Generated sample {i}/{len(questions)} in {time.time() - t}s ({i / len(questions) * 100}% done)')
 
     def answer(self, question: str, max_answer_len: int) -> str:
         """

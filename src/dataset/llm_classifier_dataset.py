@@ -109,16 +109,22 @@ class LLMClassifierDataset(Sequence, Dataset):
                            will be excluded. This will remove the "no answer" instruction from the prompt as well.
         """
         # Adding MS Marco to the database, and clearing it from memory when we are done.
+        print('Inserting MS MARCO into the database...')
         self._db.add_ms_marco_dataset(ms_marco_dataset, short_prompts)
         del ms_marco_dataset
+        print('Done')
         # Adding the prompts to the database, and clearing them from memory when we are done.
+        print('Inserting prompts into the database...')
         prompts = [self.prompt(row.passages, row.query) for row in self._db]
         self._db.add_prompts(prompts)
         del prompts
+        print('Done')
         # Adding the LLM answers to the database.
+        print('Inserting LLM answers into the database...')
         max_answer_len = max([len(answer) for answer in self._db.human_answers()])
         llm_answers = llm.answers(self._db.prompts(), max_answer_len=max_answer_len)
         self._db.add_llm_answers(llm_answers)
+        print('Done')
 
     @staticmethod
     def prompt(passages: List[str], query: str) -> str:
@@ -138,6 +144,9 @@ class LLMClassifierDataset(Sequence, Dataset):
         Returns:
             The LLM prompt for the corresponding element.
         """
+        # Remove the question mark from the end of the query, if it is there.
+        if query[-1] == '?':
+            query = query[:-1]
         # Providing the model the context passages.
         output = 'Using only the following context:\n'
         for passage in passages:

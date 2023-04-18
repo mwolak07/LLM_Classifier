@@ -3,7 +3,7 @@ import unittest
 import json
 import os
 from src.util import cd_to_executing_file, get_ram_gb, get_vram_gb
-from src.dataset import InferenceLLM
+from src.dataset import InferenceLLM, MSMarcoDataset, LLMClassifierDataset
 from test.dataset.generate_mock_ms_marco_data import write_mock_ms_marco_data
 
 
@@ -74,12 +74,12 @@ class TestInferenceLLM(unittest.TestCase):
     Attributes:
         test_questions_path: (class attribute) The path to test_questions.json from test root.
         llm: The Inference LLM we are using in this test. To be initialized in setUp in child tests.
-        max_question: The max-size question from test_questions.json.
-        random_questions: The randomly sampled questions from test_questions.json.
+        max_prompt: The max-size prompt from the mock MS MARCO dataset.
+        random_prompts: The random prompts from the mock MS MARCO dataset.
     """
-    test_questions_path: str = 'mock_question_data.json'
+    mock_ms_marco_path: str = 'mock_question_data.json'
     llm: InferenceLLM
-    max_question: str
+    max_prompt: str
     random_questions: List[str]
 
     # Identifies this test as an abstract test.
@@ -91,8 +91,8 @@ class TestInferenceLLM(unittest.TestCase):
         Ensures test_questions.json exists and writes it if it does not.
         """
         # Write questions if needed.
-        if not os.path.exists(cls.test_questions_path):
-            write_questions()
+        if not os.path.exists(cls.mock_ms_marco_path):
+            write_mock_ms_marco_data()
         # Set up stack trace for CUDA errors.
         os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
@@ -109,10 +109,14 @@ class TestInferenceLLM(unittest.TestCase):
         """
         Loads the test questions from test_questions.json.
         """
-        with open(self.test_questions_path, 'r') as f:
-            questions = json.load(f)
-        self.max_question = questions['max_question']
-        self.random_questions = questions['random_questions']
+        # Reading the mock dataset in.
+        dataset = MSMarcoDataset(self.mock_ms_marco_path)
+        # Getting the longest long prompt.
+        long_prompts = [LLMClassifierDataset.prompt(element.passages, element.query) for element in dataset]
+        self.max_prompt = max(long_prompts, key=len)
+        # Storing the short prompts.
+        short_prompts = [LLMClassifierDataset.prompt(element.chosen_passages, element.query) for element in dataset]
+        self.random_prompts = short_prompts
 
     def test_answer(self):
         """
@@ -121,7 +125,7 @@ class TestInferenceLLM(unittest.TestCase):
         for model_name in self.model_names:
             with self.subTest(model_name=model_name):
                 llm = InferenceLLM(model_name)
-                for question in self.random_questions:
+                for question in self.random_prompts:
                     answer = llm.answer(question, max_answer_len=250)
                     self.assertTrue(isinstance(answer, str))
                     self.assertTrue(len(answer) > 0)
@@ -134,7 +138,7 @@ class TestInferenceLLM(unittest.TestCase):
         for model_name in self.model_names:
             with self.subTest(model_name=model_name):
                 llm = InferenceLLM(model_name)
-                answer = llm.answer(self.max_question, max_answer_len=250)
+                answer = llm.answer(self.max_prompt, max_answer_len=250)
                 self.assertTrue(isinstance(answer, str))
                 self.assertTrue(len(answer) > 0)
 
@@ -145,8 +149,8 @@ class TestInferenceLLM(unittest.TestCase):
         for model_name in self.model_names:
             with self.subTest(model_name=model_name):
                 llm = InferenceLLM(model_name)
-                answers = llm.answers(self.random_questions, max_answer_len=250)
-                self.assertTrue(len(answers) == len(self.random_questions))
+                answers = llm.answers(self.random_prompts, max_answer_len=250)
+                self.assertTrue(len(answers) == len(self.random_prompts))
                 for answer in answers:
                     self.assertTrue(isinstance(answer, str))
                     self.assertTrue(len(answer) > 0)
@@ -159,8 +163,8 @@ class TestInferenceLLM(unittest.TestCase):
         for model_name in self.model_names:
             with self.subTest(model_name=model_name):
                 llm = InferenceLLM(model_name)
-                answers = llm.answers(self.random_questions + [self.max_question], max_answer_len=250)
-                self.assertTrue(len(answers) == len(self.random_questions))
+                answers = llm.answers(self.random_prompts + [self.max_prompt], max_answer_len=250)
+                self.assertTrue(len(answers) == len(self.random_prompts))
                 for answer in answers:
                     self.assertTrue(isinstance(answer, str))
                     self.assertTrue(len(answer) > 0)

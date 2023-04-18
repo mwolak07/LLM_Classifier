@@ -7,7 +7,6 @@ import random
 import json
 
 
-@dataclass
 class MSMarcoQueryType(Enum):
     """
     Represents the query types present in the MS MARCO dataset.
@@ -44,9 +43,13 @@ class MSMarcoDataset(Sequence):
     Implements Sequence, so it can be iterated over in for loops and accessed like a list.
 
     Attributes:
+        _answer_empty: (class attribute) The string indicating an empty answer.
+        _well_formed_answer_empty: (class attribute) The string indicating an empty well formed answer.
         _data_file: The location on disk of the data file.
         _data: Internal list representing a list of elements of the MS Marco dataset.
     """
+    answer_empty: List[str] = ['No Answer Present.']
+    well_formed_answer_empty: str = '[]'
     _data_file: str
     _data: List[MSMarcoItem]
 
@@ -191,8 +194,7 @@ class MSMarcoDataset(Sequence):
                                   if passage['is_selected'] == 1]
         return chosen_passages
 
-    @staticmethod
-    def _get_answers(data: Dict[str, Any]) -> List[List[str]]:
+    def _get_answers(self, data: Dict[str, Any]) -> List[List[str]]:
         """
         Loads the list of answers from the loaded data. Deals with the ['No Answer Present.'] empty case.
 
@@ -206,14 +208,13 @@ class MSMarcoDataset(Sequence):
         answers = list(np.empty((n,)))
         for key in data['answers'].keys():
             i = int(key)
-            if data['answers'][key] == ['No Answer Present.']:
+            if data['answers'][key] == self.answer_empty:
                 answers[i] = []
             else:
                 answers[i] = data['answers'][key]
         return answers
 
-    @staticmethod
-    def _get_well_formed_answers(data: Dict[str, Any]) -> List[List[str]]:
+    def _get_well_formed_answers(self, data: Dict[str, Any]) -> List[List[str]]:
         """
         Loads the list of well formed answers from the loaded data. Deals with the '[]' empty case.
 
@@ -227,7 +228,7 @@ class MSMarcoDataset(Sequence):
         well_formed_answers = list(np.empty((n,)))
         for key in data['wellFormedAnswers'].keys():
             i = int(key)
-            if data['wellFormedAnswers'][key] == '[]':
+            if data['wellFormedAnswers'][key] == self.well_formed_answer_empty:
                 well_formed_answers[i] = []
             else:
                 well_formed_answers[i] = data['wellFormedAnswers'][key]

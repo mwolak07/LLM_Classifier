@@ -38,10 +38,14 @@ def generate_datasets_for_llm(llm: InferenceLLM, db_folder: str) -> None:
         llm: The LLM we will use to answer the prompts.
         db_folder: The folder we will be writing our databases to.
     """
+    print('Generating testing set...')
     generate_dataset(train=False, short_prompts=True, llm=llm,
                      db_path=os.path.join(db_folder, 'test_short_prompts.sqlite3'))
+    print('Done')
+    print('Generating training set...')
     generate_dataset(train=True, short_prompts=True, llm=llm,
                      db_path=os.path.join(db_folder, 'train_short_prompts.sqlite3'))
+    print('Done')
     
 
 def generate_datasets():

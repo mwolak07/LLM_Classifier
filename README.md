@@ -12,8 +12,8 @@ This is a list of useful commands. These are to be executed from the project roo
   - `$ conda env update --file environment.yml`
 - Generating the databases in /data/llm_classifier:
   - `$ python src/datasets/generate_datasets.py`
-- Generating the test prompts:
-  - `$ python ./test/datasets/generate_test_questions.py`
+- Generating the mock ms marco dataset:
+  - `$ python ./test/datasets/generate_mock_ms_marco_data.py`
 - Downloading pretrained huggingface models:
   - `$ python ./llm_classifier/models/download_huggingface_models.py`
 
