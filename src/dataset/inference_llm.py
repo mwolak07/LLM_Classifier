@@ -196,8 +196,7 @@ class InferenceLLM(ABC):
             question_batch = {question: '' for question in question_batches[i]}
             question_batch = self.answer_batch(question_batch, max_answer_len)
             answers += [question_batch[question] for question in question_batch.keys()]
-            print(f'Generated batch {i}/{len(question_batches) - 1} in '
-                  f'{time.time() - t}s ({i / (len(question_batches) - 1) * 100}% done)')
+            print(f'Generated batch {i}/{len(question_batches)} in {time.time() - t}s')
         return answers
 
     @staticmethod
@@ -239,7 +238,7 @@ class InferenceLLM(ABC):
 
         # Encoding the input.
         llm_questions = [question for question in question_batch_keys if question_batch[question] == '']
-        encoded_inputs = self._tokenizer(llm_questions, return_tensors="pt", return_attention_mask=True)
+        encoded_inputs = self._tokenizer(llm_questions, return_tensors="pt", return_attention_mask=True, padding=True)
         # Unpacking the input and moving tensors to the GPU if needed.
         input_ids = encoded_inputs.input_ids.to(device('cuda')) if self._use_gpu \
             else encoded_inputs.input_ids

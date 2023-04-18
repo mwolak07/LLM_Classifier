@@ -333,6 +333,31 @@ class LLMClassifierDatabase(Sequence):
         self.executemany(statement, values_list)
         self.commit()
 
+    def add_llm_answer(self, answer: str, index: int) -> None:
+        """
+        Takes a single answer from the LLM, and inserts it at the given index.
+
+        Assume:
+            This should run only after add_ms_marco_dataset, when the table is not empty.
+
+        Args:
+            answer: The answer the LLM gave to the prompt at the given index.
+            index: The index of the prompt the LLM was r
+
+        Raises:
+            RuntimeError: When the table is empty.
+        """
+        # Should only run when the table is not empty.
+        if len(self) == 0:
+            raise RuntimeError('Table is empty!')
+        # Creating the statement.
+        statement = f'UPDATE {self.table_name} SET llm_answer = :llm_answer WHERE id = :id;'
+        # Getting a list of values objects
+        values = {'llm_answer': answer, 'id': index + 1}
+        # Executing the statement for all values in the list
+        self.execute(statement, values)
+        self.commit()
+
     def human_answers(self) -> List[str]:
         """
         Returns a list of all the human answers, in order by increasing row 'id'.

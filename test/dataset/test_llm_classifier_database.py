@@ -164,9 +164,24 @@ class TestLLMClassifierDatabase(unittest.TestCase):
         # Adding the mock ms marco dataset.
         dataset = MSMarcoDataset(self.mock_dataset_file)
         self.db.add_ms_marco_dataset(dataset, short_prompts=True)
-        # Checking that the prompts are added correctly.
+        # Checking that the answers are added correctly.
         answers = [f'answer{i}' for i in range(len(self.db))]
         self.db.add_llm_answers(answers)
+        db_answers = [row.llm_answer for row in self.db]
+        for i in range(len(self.db)):
+            self.assertEqual(answers[i], db_answers[i])
+
+    def test_add_llm_answer(self):
+        """
+        Tests that llm answers are correctly added to the database, if we go one at a time.
+        """
+        # Adding the mock ms marco dataset.
+        dataset = MSMarcoDataset(self.mock_dataset_file)
+        self.db.add_ms_marco_dataset(dataset, short_prompts=True)
+        # Checking that the answers are added correctly.
+        answers = [f'answer{i}' for i in range(len(self.db))]
+        for i in range(len(self.db)):
+            self.db.add_llm_answer(f'answer{i}', i)
         db_answers = [row.llm_answer for row in self.db]
         for i in range(len(self.db)):
             self.assertEqual(answers[i], db_answers[i])

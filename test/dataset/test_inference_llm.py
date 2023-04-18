@@ -280,7 +280,7 @@ class TestInferenceLLM(ABC):
         """
         Ensures the llm can correctly generate a set of answers for multiple short questions, with various batch sizes.
         """
-        for batch_size in [1, 2, 3, 4]:
+        for batch_size in [2, 4, 8, 16, 32]:
             with self.subTest(batch_size=batch_size):
                 answers = self.llm.answers(self.random_prompts, max_answer_len=250, batch_size=batch_size)
                 self.assertTrue(len(answers) == len(self.random_prompts))
@@ -288,12 +288,12 @@ class TestInferenceLLM(ABC):
                     self.assertTrue(isinstance(answer, str))
                     self.assertTrue(len(answer) > 0)
 
-    def test_answers_long_question_batch_n(self, batch_size: int):
+    def test_answers_long_question_batch_n(self):
         """
         Ensures the llm can correctly generate a set of answers for multiple questions, if one of the questions is the
         max question, with various batch sizes.
         """
-        for batch_size in [1, 2, 3, 4]:
+        for batch_size in [2, 4, 8, 16, 32]:
             with self.subTest(batch_size=batch_size):
                 answers = self.llm.answers(self.random_prompts + [self.max_prompt], max_answer_len=250,
                                            batch_size=batch_size)

@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Union
 from collections.abc import Sequence
 from torch.utils.data import Dataset
 from numpy import ndarray
+import time
 from src.dataset import LLMClassifierDatabase, InferenceLLM, MSMarcoDataset
 
 
@@ -121,11 +122,11 @@ class LLMClassifierDataset(Sequence, Dataset):
         self._db.add_prompts(prompts)
         del prompts
         print('Done')
-        # Adding the LLM answers to the database.
+        # Adding the LLM answers to the database. We don't use the more convenient answers(), because if we stop midway,
+        # he database would not be populated.
         print('Inserting LLM answers into the database...')
         max_answer_len = max([len(answer) for answer in self._db.human_answers()])
-        llm_answers = llm.answers(self._db.prompts(), max_answer_len=max_answer_len, batch_size=batch_size)
-        self._db.add_llm_answers(llm_answers)
+        self.llm_answers_to_db(llm, max_answer_len, self._db.prompts(), batch_size)
         print('Done')
 
     @staticmethod
@@ -156,3 +157,30 @@ class LLMClassifierDataset(Sequence, Dataset):
         # Providing the model the query.
         output += f'The answer, in complete sentences, to the question: "{query}?", is:\n'
         return output
+
+    def llm_answers_to_db(self, llm: InferenceLLM, max_answer_len: int, prompts: List[str], batch_size: int = 1,
+                          start_index: int = 0) -> None:
+        """
+        Adds answers to the database from the LLM using batch inference. We do it in a custom loop like this, because
+        then we are able to store results in the database at each step, and so we can ensure interrupted inference or
+        a system crash will not result in us losing our progress.
+
+        Args:
+            llm: The InferenceLLM to use for the inference to generate answers.
+            max_answer_len: The maximum length for an answer from the LLM.
+            prompts: The list of prompts to generate responses for.
+            batch_size: The size of the batches to run the inference with.
+            start_index: The index to start inserting answers at (default is 0, but can be higher if we are resuming).
+        """
+        answer_index = start_index
+        prompt_batches = llm.get_batches(prompts, batch_size)
+        for i in range(len(prompt_batches)):
+            t = time.time()
+            prompt_batch = {question: '' for question in prompt_batches[i]}
+            prompt_batch = llm.answer_batch(prompt_batch, max_answer_len)
+            answers = [prompt_batch[question] for question in prompt_batch.keys()]
+            for answer in answers:
+                self._db.add_llm_answer(answer, answer_index)
+                answer_index += 1
+            print(f'Generated batch {i}/{len(prompt_batches) - 1} in {time.time() - t}s '
+                  f'({1 / (len(prompt_batches) - 1) * 100}%)')
