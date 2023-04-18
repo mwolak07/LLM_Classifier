@@ -51,10 +51,9 @@ def generate_datasets_for_llm(llm: InferenceLLM, db_folder: str, batch_size: int
 
 def generate_datasets():
     """
-    Generates a dataset for each inference llm:
-
+    Generates a dataset for each inference llm.
     """
-    generate_datasets_for_llm(InferenceLLM('facebook/opt-1.3b'), '../../data/opt_1_3B')
+    # generate_datasets_for_llm(InferenceLLM('facebook/opt-1.3b'), '../../data/opt_1_3B')
     generate_datasets_for_llm(InferenceLLM('bigscience/bloom-1b1'), '../../data/bloom_1_1B')
 
 

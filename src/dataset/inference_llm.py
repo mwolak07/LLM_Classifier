@@ -1,3 +1,4 @@
+import torch.cuda
 from transformers import PreTrainedModel, PreTrainedTokenizer, AutoModelForCausalLM, AutoTokenizer
 from torch import device, cuda, float16
 from typing import List, Dict
@@ -50,6 +51,7 @@ class InferenceLLM(ABC):
         self._model = self._model.to(device('cuda')) if self._use_gpu else self._model
         # Instantiating the tokenizer associated with the model.
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self._tokenizer.pad_token = self._tokenizer.eos_token
 
     @staticmethod
     def check_ram(model_ram_file: str, model_name: str, use_gpu: bool) -> None:
@@ -189,6 +191,7 @@ class InferenceLLM(ABC):
         Returns:
             The answers given by the LLM.
         """
+        print('\n Answers:')
         answers = []
         question_batches = self.get_batches(questions, batch_size)
         for i in range(len(question_batches)):
@@ -196,7 +199,7 @@ class InferenceLLM(ABC):
             question_batch = {question: '' for question in question_batches[i]}
             question_batch = self.answer_batch(question_batch, max_answer_len)
             answers += [question_batch[question] for question in question_batch.keys()]
-            print(f'Generated batch {i}/{len(question_batches)} in {time.time() - t}s')
+            print(f'Generated batch {i + 1}/{len(question_batches)} in {time.time() - t}s')
         return answers
 
     @staticmethod
@@ -228,6 +231,11 @@ class InferenceLLM(ABC):
 
         Returns:
             The batch of answers given by the LLM.
+
+        Raises:
+            torch.cuda.OutOfMemoryError: When the batch size or data is too large, and does not fit on the GPU.
+            torch.cuda.CudaError: When some other error occurs in CUDA.
+            RuntimeError: the length of one of the input sequences was longer than the maximum for the model.
         """
         # We ran out of tries. Return the answers we have.
         if _current_try == _max_try:
@@ -238,7 +246,12 @@ class InferenceLLM(ABC):
 
         # Encoding the input.
         llm_questions = [question for question in question_batch_keys if question_batch[question] == '']
-        encoded_inputs = self._tokenizer(llm_questions, return_tensors="pt", return_attention_mask=True, padding=True)
+        for question in llm_questions:
+            if len(question) > self._tokenizer.model_max_length:
+                raise RuntimeError(f'Input sequence is longer than maximum for the model, '
+                                   f'{len(question)} > {self._tokenizer.model_max_length}, question: {question}')
+        encoded_inputs = self._tokenizer(llm_questions, return_tensors="pt", return_attention_mask=True,
+                                         padding=True)
         # Unpacking the input and moving tensors to the GPU if needed.
         input_ids = encoded_inputs.input_ids.to(device('cuda')) if self._use_gpu \
             else encoded_inputs.input_ids
@@ -258,6 +271,10 @@ class InferenceLLM(ABC):
 
         # Inserting the processed answers into the answer_map, or empty_output map if the answer was empty.
         question_batch = {question_batch_keys[i]: processed_answers[i] for i in range(len(question_batch_keys))}
+        print('\nvalues:')
+        for value in question_batch.values():
+            print(value)
+        print(question_batch.values())
         # Re-trying for empty answers if we got any.
         if '' in question_batch.values():
             return self.answer_batch(question_batch, max_answer_len, _current_try + 1)
