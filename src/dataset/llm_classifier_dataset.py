@@ -2,7 +2,7 @@ from typing import List, Optional, Tuple, Union
 from collections.abc import Sequence
 from torch.utils.data import Dataset
 from numpy import ndarray
-from llm_classifier.dataset import LLMClassifierDatabase, InferenceLLM, MSMarcoDataset
+from src.dataset import LLMClassifierDatabase, InferenceLLM, MSMarcoDataset
 
 
 # Storing the type definition for a Feature, to make things simpler.
@@ -25,7 +25,7 @@ class LLMClassifierDataset(Sequence, Dataset):
     _db: LLMClassifierDatabase
     _data: Optional[List[Tuple[Feature, int]]]
 
-    def __init__(self, db_path: str, load_to_memory=False, vectorize=False):
+    def __init__(self, db_path: str, load_to_memory: bool = False, vectorize: bool = False):
         """
         Initializes the dataset using the database. If load_to_memory is True, it will store the entire dataset in
         memory when the object is initialized.
@@ -108,12 +108,40 @@ class LLMClassifierDataset(Sequence, Dataset):
             short_prompts: If this is True, we will use only the chosen passages in the prompts, and "no answer" cases
                            will be excluded. This will remove the "no answer" instruction from the prompt as well.
         """
-        # Adding MS Marco to the database.
+        # Adding MS Marco to the database, and clearing it from memory when we are done.
         self._db.add_ms_marco_dataset(ms_marco_dataset, short_prompts)
-        # Clearing the MS_MARCO dataset out of memory, since all of that is in the database now.
         del ms_marco_dataset
-        # Getting all of the prompts for the LLM and adding its answers to the database.
-        prompts = self._db.prompts()
+        # Adding the prompts to the database, and clearing them from memory when we are done.
+        prompts = [self.prompt(row.passages, row.query) for row in self._db]
+        self._db.add_prompts(prompts)
+        del prompts
+        # Adding the LLM answers to the database.
         max_answer_len = max([len(answer) for answer in self._db.human_answers()])
-        llm_answers = llm.answers(prompts, max_answer_len=max_answer_len)
+        llm_answers = llm.answers(self._db.prompts(), max_answer_len=max_answer_len)
         self._db.add_llm_answers(llm_answers)
+
+    @staticmethod
+    def prompt(passages: List[str], query: str) -> str:
+        """
+        Generates the language model prompt for the nth element in the dataset. This contains the context of the
+        passages, an explanation of how to answer, and the question. The context can be all of the passages, or only
+        the ones chosen as relevant by the human respondent. Note, that there will be no chosen passages if the human
+        respondent stated that there were no answers.
+
+        Assume:
+            If short is True, then answers is not empty.
+
+        Args:
+            passages: The passages to use as context for the query.
+            query: The query the prompt should be asking about.
+
+        Returns:
+            The LLM prompt for the corresponding element.
+        """
+        # Providing the model the context passages.
+        output = 'Using only the following context:\n'
+        for passage in passages:
+            output += passage + '\n\n'
+        # Providing the model the query.
+        output += f'The answer, in complete sentences, to the question: "{query}?", is:\n'
+        return output

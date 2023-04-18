@@ -2,9 +2,9 @@ from typing import List
 import unittest
 import json
 import os
-from llm_classifier.util import cd_to_executing_file, get_ram_gb, get_vram_gb
-from llm_classifier.dataset import InferenceLLM
-from test.dataset.generate_test_questions import write_questions
+from src.util import cd_to_executing_file, get_ram_gb, get_vram_gb
+from src.dataset import InferenceLLM
+from test.dataset.generate_mock_ms_marco_data import write_mock_ms_marco_data
 
 
 class TestInferenceLLMUtils(unittest.TestCase):

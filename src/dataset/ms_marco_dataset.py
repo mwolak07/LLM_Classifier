@@ -44,12 +44,9 @@ class MSMarcoDataset(Sequence):
     Implements Sequence, so it can be iterated over in for loops and accessed like a list.
 
     Attributes:
-        no_answer_phrase: (class attribute) The phrase the prompt should be answered with when giving an answer is not
-                          possible.
         _data_file: The location on disk of the data file.
         _data: Internal list representing a list of elements of the MS Marco dataset.
     """
-    no_answer_phrase = 'No Answer Present.'
     _data_file: str
     _data: List[MSMarcoItem]
 
@@ -101,42 +98,6 @@ class MSMarcoDataset(Sequence):
             This dataset as a list.
         """
         return self._data.copy()
-
-    def prompt(self, index: int, short: bool = True) -> str:
-        """
-        Generates the language model prompt for the nth element in the dataset. This contains the context of the
-        passages, an explanation of how to answer, and the question. The context can be all of the passages, or only
-        the ones chosen as relevant by the human respondent. Note, that there will be no chosen passages if the human
-        respondent stated that there were no answers.
-
-        Assume:
-            If short is True, then answers is not empty.
-
-        Args:
-            index: The index of the MS Marco element we want to generate the prompt for.
-            short: If True, we only use the chosen_passages, instead of the passages, to generate the prompt.
-
-        Returns:
-            The LLM prompt for the corresponding element.
-
-        Raises:
-            RuntimeError if there is no answer and short=True.
-        """
-        # Getting the nth element in the dataset.
-        element = self[index]
-        # Ensuring that there is an answer if short=True.
-        if short and len(element.answers) == 0:
-            raise RuntimeError('Short prompt cannot be specified for an item with no answer!')
-        # Providing the model the context passages.
-        output = 'Using only the following context:\n'
-        # Getting the list of passages based on short.
-        passages = element.chosen_passages if short else element.passages
-        for passage in passages:
-            output += passage + '\n\n'
-        # Providing the model the query.
-        query = element.query
-        output += f'The answer, in complete sentences, to the question: "{query}?", is:\n'
-        return output
 
     def _load_data(self) -> List[MSMarcoItem]:
         """

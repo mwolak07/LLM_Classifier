@@ -3,7 +3,7 @@ from sqlite3 import connect, Connection, Cursor
 from collections.abc import Sequence
 from dataclasses import dataclass
 import json
-from llm_classifier.dataset import MSMarcoDataset
+from src.dataset import MSMarcoDataset
 
 
 @dataclass
@@ -13,7 +13,6 @@ class LLMClassifierRow:
     """
     query: str
     passages: List[str]
-    chosen_passages: List[str]
     prompt: str
     human_answer: str
     llm_answer: str
@@ -25,6 +24,11 @@ class LLMClassifierDatabase(Sequence):
     Responsible for providing an easy-to-use interface for creating and accessing the database for storing the data for
     the GPT LLM classification problem.
     Uses sqlalchemy for storing and loading the relevant info to/from an sqlite3 database.
+
+    Attributes:
+        _table: (class attribute) The name of the table where we will store the data.
+        _connection: The connection to the database.
+        _cursor: The cursor for the database, attached to the connection.
     """
     _table: str = 'llm_classifier_data'
     _connection: Connection
@@ -137,7 +141,7 @@ class LLMClassifierDatabase(Sequence):
                'has_answer'
 
     @staticmethod
-    def decode_row(row: Tuple[int, str, str, str, str, str, str, int]) -> LLMClassifierRow:
+    def decode_row(row: Tuple[int, str, str, str, str, str, int]) -> LLMClassifierRow:
         """
         Takes a row from the database, and converts it into python types. Decodes the stringified JSON where needed,
         and converts everything into an LLMClassifierRow.
@@ -154,11 +158,10 @@ class LLMClassifierDatabase(Sequence):
         values = list(row)
         # Decoding the JSON strings.
         values[2] = list(json.loads(values[2]))
-        values[3] = list(json.loads(values[3]))
         # Converting int to boolean.
-        values[7] = bool(values[7])
+        values[6] = bool(values[6])
         # Converting to a LLMClassifierRow. Does not include id.
-        return LLMClassifierRow(values[1], values[2], values[3], values[4], values[5], values[6], values[7])
+        return LLMClassifierRow(values[1], values[2], values[3], values[4], values[5], values[6])
 
     def _table_exists(self) -> bool:
         """
@@ -180,7 +183,6 @@ class LLMClassifierDatabase(Sequence):
                     f'  id INTEGER AUTOINCREMENT PRIMARY KEY NOT NULL,' \
                     f'  query TEXT,' \
                     f'  passages TEXT,' \
-                    f'  chosen_passages TEXT,' \
                     f'  prompt TEXT,' \
                     f'  human_answer TEXT,' \
                     f'  llm_answer TEXT,' \
@@ -191,7 +193,7 @@ class LLMClassifierDatabase(Sequence):
             self.execute(statement)
             self.commit()
 
-    def add_ms_marco_dataset(self, dataset: MSMarcoDataset, short_prompts: bool = True) -> None:
+    def add_ms_marco_dataset(self, dataset: MSMarcoDataset, short_prompts: bool) -> None:
         """
         Adds the elements from the given MS Marco dataset to the database. This will populate all of the columns except
         for 'llm_answer', which it will leave blank. The id will be the index in the dataset.
@@ -201,8 +203,8 @@ class LLMClassifierDatabase(Sequence):
 
         Args:
             dataset: The MS Marco dataset object we will be getting the MS Marco data from.
-            short_prompts: If this is True, we will use only the chosen passages in the prompts, and "no answer" cases
-                           will be excluded. This will remove the "no answer" instruction from the prompt as well.
+            short_prompts: True if we are using short prompts. If this is true, we don't include rows with no answer,
+                           and use chosen_passages instead of passages.
 
         Raises:
             RuntimeError: When the table is not already empty.
@@ -217,8 +219,6 @@ class LLMClassifierDatabase(Sequence):
                     f'   :id, ' \
                     f'   :query, ' \
                     f'   json_array(:passages), ' \
-                    f'   json_array(:chosen_passages), ' \
-                    f'   :prompt,' \
                     f'   :human_answer,' \
                     f'   :has_answer' \
                     f');'
@@ -229,7 +229,8 @@ class LLMClassifierDatabase(Sequence):
         self.executemany(statement, values_list)
         self.commit()
 
-    def _ms_marco_item_to_rows(self, index: int, dataset: MSMarcoDataset, short_prompts: bool = True) \
+    @staticmethod
+    def _ms_marco_item_to_rows(index: int, dataset: MSMarcoDataset, short_prompts: bool) \
             -> List[Dict[str, Union[int, str]]]:
         """
         Converts the MS Marco element at the given index in the dataset to an dict, which represents the value for each
@@ -238,8 +239,8 @@ class LLMClassifierDatabase(Sequence):
         Args:
             index: The index of the element in the MS Marco Dataset.
             dataset: The MS Marco dataset object we will be getting the MS Marco data from.
-            short_prompts: If this is True, we will use only the chosen passages in the prompts, and "no answer" cases
-                           will be excluded. This will remove the "no answer" instruction from the prompt as well.
+            short_prompts: True if we are using short prompts. If this is true, we don't include rows with no answer,
+                           and use chosen_passages instead of passages.
 
         Returns:
             A dict representing the row in the llm_classifier_data table.
@@ -247,16 +248,14 @@ class LLMClassifierDatabase(Sequence):
         output = []
         # Grabbing the item.
         item = dataset[index]
-        # Generating the prompt.
-        prompt = dataset.prompt(index, short_prompts)
+        # Grabbing the passages based on short_prompts.
+        passages = dataset[index].passages if not short_prompts else dataset[index].chosen_passages
         # Going through each answer, and making a values object. This will not create any for prompts with no answer.
         for answer in item.answers:
             # Adding the new values as a values dict to our output.
             values = {
                 'query': dataset[index].query,
-                'passages': json.dumps(dataset[index].passages),
-                'chosen_passages': json.dumps(dataset[index].chosen_passages),
-                'prompt': prompt,
+                'passages': json.dumps(passages),
                 'answer': answer,
                 'has_answer': int(True)
             }
@@ -265,14 +264,36 @@ class LLMClassifierDatabase(Sequence):
         if len(item.answers) == 0 and not short_prompts:
             values = {
                 'query': dataset[index].query,
-                'passages': json.dumps(dataset[index].passages),
-                'chosen_passages': json.dumps(dataset[index].chosen_passages),
-                'prompt': prompt,
+                'passages': json.dumps(passages),
                 'answer': None,
                 'has_answer': int(False)
             }
             output.append(values)
         return output
+
+    def add_prompts(self, prompts: List[str]) -> None:
+        """
+        Takes a list of generated prompts, in the order of row 'id', and inserts them.
+
+        Assume:
+            This should run only after add_ms_marco_dataset, when the table is not empty.
+
+        Args:
+            prompts: A list of prompts generated based on the MS_MARCO data, in order of row 'id'.
+
+        Raises:
+            RuntimeError: When the table is empty.
+        """
+        # Should only run when the table is not empty.
+        if len(self):
+            raise RuntimeError('Table is empty!')
+        # Creating the statement.
+        statement = f'UPDATE {self._table} SET prompt = :prompt WHERE id = :id;'
+        # Getting a list of values objects
+        values_list = [{'prompt': prompts[i], 'id': i} for i in range(len(prompts))]
+        # Executing the statement for all values in the list
+        self.executemany(statement, values_list)
+        self.commit()
 
     def add_llm_answers(self, answers: List[str]) -> None:
         """
@@ -298,17 +319,6 @@ class LLMClassifierDatabase(Sequence):
         self.executemany(statement, values_list)
         self.commit()
 
-    def prompts(self) -> List[str]:
-        """
-        Returns a list of all of the prompts, in order by increasing row 'id'.
-
-        Returns:
-            A list of prompts, ordered by increasing row 'id'.
-        """
-        statement = f'SELECT (prompt) FROM {self._table} ORDER BY id;'
-        result = self.execute(statement).fetchall()
-        return list(result)
-
     def human_answers(self) -> List[str]:
         """
         Returns a list of all the human answers, in order by increasing row 'id'.
@@ -317,6 +327,17 @@ class LLMClassifierDatabase(Sequence):
             A list of human answers, ordered by increasing row 'id'.
         """
         statement = f'SELECT (human_answer) FROM {self._table} ORDER BY id;'
+        result = self.execute(statement).fetchall()
+        return list(result)
+
+    def prompts(self) -> List[str]:
+        """
+        Returns a list of all of the prompts, in order by increasing row 'id'.
+
+        Returns:
+            A list of prompts, ordered by increasing row 'id'.
+        """
+        statement = f'SELECT (prompt) FROM {self._table} ORDER BY id;'
         result = self.execute(statement).fetchall()
         return list(result)
 

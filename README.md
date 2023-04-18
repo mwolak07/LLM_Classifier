@@ -65,7 +65,7 @@ If you want to re-generate the sphinx files:
     html_theme = 'sphinx-rtd-theme'
     ```
 - `$ cd ..`    
-- `$ sphinx-apidoc -o docs llm_classifier`
+- `$ sphinx-apidoc -o docs src`
 - Modify index.rst:
   - Modify the following lines under "Welcome to LLM-Classifier's documentation!":
     ```text

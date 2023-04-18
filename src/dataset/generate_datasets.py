@@ -1,6 +1,6 @@
 import os
-from llm_classifier.dataset import MSMarcoDataset, InferenceLLM, LLMClassifierDataset
-from llm_classifier.util import cd_to_executing_file
+from src.dataset import MSMarcoDataset, InferenceLLM, LLMClassifierDataset
+from src.util import cd_to_executing_file
 
 
 def generate_dataset(train: bool, short_prompts: bool, llm: InferenceLLM, db_path: str) -> None:

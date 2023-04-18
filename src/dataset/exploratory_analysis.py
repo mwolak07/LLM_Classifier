@@ -5,7 +5,7 @@ import pandas as pd
 import random
 import json
 import sys
-from llm_classifier.dataset import MSMarcoDataset
+from src.dataset import MSMarcoDataset
 
 
 """
