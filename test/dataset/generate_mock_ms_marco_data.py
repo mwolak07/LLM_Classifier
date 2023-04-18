@@ -32,17 +32,18 @@ def get_dataset_elements(dataset: MSMarcoDataset) -> Dict[str, Any]:
     # Getting a random element with no answer.
     no_answer_elements = [element for element in dataset if len(element.answers) == 0]
     no_answer_index = random.choice(range(len(no_answer_elements)))
-    output['no_answer'] = dataset[no_answer_index]
+    output['no_answer'] = no_answer_elements[no_answer_index]
     selected_indexes.append(no_answer_index)
 
     # Getting a random element with more than one answer.
     many_answer_elements = [element for element in dataset if len(element.answers) > 1]
     many_answer_index = random.choice(range(len(many_answer_elements)))
-    output['many_answer'] = dataset[many_answer_index]
+    output['many_answer'] = many_answer_elements[many_answer_index]
     selected_indexes.append(many_answer_index)
 
     # Getting 3 random elements in the dataset that have answers, and have not already been picked.
-    remaining_elements = [dataset[i] for i in range(len(dataset)) if i not in selected_indexes]
+    remaining_elements = [dataset[i] for i in range(len(dataset))
+                          if i not in selected_indexes and len(dataset[i].answers) >= 1]
     output['random'] = random.sample(remaining_elements, 3)
 
     return output
@@ -151,7 +152,7 @@ def _get_ms_marco_answers(element: MSMarcoItem, well_formed: bool) -> Tuple[List
         answers = MSMarcoDataset.answer_empty
         well_formed_answers = MSMarcoDataset.well_formed_answer_empty
     elif well_formed:
-        answers = ['garbage' * len(element.answers)]
+        answers = ['garbage'] * len(element.answers)
         well_formed_answers = element.answers
     else:
         answers = element.answers
@@ -190,7 +191,7 @@ def write_mock_ms_marco_data() -> None:
     # Assume we are running from the /test directory.
     train_file = '../../data/MS_MARCO/train_v2.1.json'
     test_file = '../../data/MS_MARCO/dev_v2.1.json'
-    output_file = 'mock_question_data.json'
+    output_file = 'mock_ms_marco_data.json'
 
     # Getting the elements from the testing set.
     print('Reading the testing set...')

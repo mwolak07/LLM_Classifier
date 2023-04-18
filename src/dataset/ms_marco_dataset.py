@@ -36,6 +36,16 @@ class MSMarcoItem:
     chosen_passages: List[str]
     answers: List[str]
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, MSMarcoItem):
+            return False
+        same_query = self.query == other.query
+        same_query_type = self.query_type == other.query_type
+        same_passages = self.passages == other.passages
+        same_chosen_passages = self.chosen_passages == other.chosen_passages
+        same_answers = self.answers == other.answers
+        return same_query and same_query_type and same_passages and same_chosen_passages and same_answers
+
 
 class MSMarcoDataset(Sequence):
     """

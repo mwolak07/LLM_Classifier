@@ -94,7 +94,8 @@ class LLMClassifierDataset(Sequence, Dataset):
         """
         return len(self._db) * 2
 
-    def create_database(self, ms_marco_dataset: MSMarcoDataset, llm: InferenceLLM, short_prompts: bool = True) -> None:
+    def create_database(self, ms_marco_dataset: MSMarcoDataset, llm: InferenceLLM, short_prompts: bool = True,
+                        batch_size: int = 1) -> None:
         """
         Creates the database. This uses the MS_Marco dataset along with the llm to:
         - Insert the context and human answers to the database
@@ -107,6 +108,7 @@ class LLMClassifierDataset(Sequence, Dataset):
             llm: The large language model that will be answering the prompts for comparison with human answers.
             short_prompts: If this is True, we will use only the chosen passages in the prompts, and "no answer" cases
                            will be excluded. This will remove the "no answer" instruction from the prompt as well.
+            batch_size: The batch size that can be optionally specified for inference, if you have a lot of RAM.
         """
         # Adding MS Marco to the database, and clearing it from memory when we are done.
         print('Inserting MS MARCO into the database...')
@@ -122,7 +124,7 @@ class LLMClassifierDataset(Sequence, Dataset):
         # Adding the LLM answers to the database.
         print('Inserting LLM answers into the database...')
         max_answer_len = max([len(answer) for answer in self._db.human_answers()])
-        llm_answers = llm.answers(self._db.prompts(), max_answer_len=max_answer_len)
+        llm_answers = llm.answers(self._db.prompts(), max_answer_len=max_answer_len, batch_size=batch_size)
         self._db.add_llm_answers(llm_answers)
         print('Done')
 

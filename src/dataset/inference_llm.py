@@ -1,8 +1,7 @@
 from transformers import PreTrainedModel, PreTrainedTokenizer, AutoModelForCausalLM, AutoTokenizer
 from torch import device, cuda, float16
-from typing import List
+from typing import List, Dict
 from abc import ABC
-import nltk
 import json
 import time
 from src.util import cd_to_executing_file, get_ram_gb, get_vram_gb
@@ -90,52 +89,84 @@ class InferenceLLM(ABC):
         Returns:
             The post-processed answer.
         """
+        # If we got an empty string as our answer, return it.
+        if answer == '' or answer is None:
+            return ''
         # Removing the context prompt.
         answer = answer.split('The answer, in complete sentences, to the question:')[1].split(', is:')[1]
         # Getting the sentences.
-        sentences = nltk.tokenize.sent_tokenize(answer)
+        sentences = InferenceLLM.get_sentences(answer)
+        # If we have no sentences, return ''.
+        if len(sentences) == 0:
+            return ''
+        # If we started with punctuation, remove it.
+        if sentences[0] in '.!?':
+            sentences = sentences[1:]
+        # We got multiple sentences.
         if len(sentences) > 1:
             # Removing the last sentence if it does not end in correct punctuation (cut off answer).
             if sentences[-1][-1] not in '.!?':
                 sentences = sentences[:-1]
+        # We only have one sentence, so do not remove it.
         elif len(sentences) == 1:
             # Adding a period to a partial answer if there was only 1 sentence.
             if sentences[-1][-1] not in '.!?':
                 sentences[-1] += '.'
         # Looking for repeats one after the other, and removing them.
         last_sentence = ''
-        for i in range(len(sentences)):
-            sentence = sentences[i]
-            if sentence == last_sentence:
-                sentences.pop(i)
+        new_sentences = []
+        for sentence in sentences:
+            # Skip repeats, unless it is punctuation.
+            if sentence != last_sentence or sentence in '.!?':
+                new_sentences.append(sentence)
             last_sentence = sentence
+        sentences = new_sentences
         # Concatenating the result and returning it.
         answer = ''.join(sentences)
-        # Add spaces after punctuation, but not after the last one.
+        # Add spaces after punctuation.
         answer = answer.replace('.', '. ').replace('!', '! ').replace('?', '? ')
+        # Remove spaces between double punctuation.
+        while '. .' in answer or '! !' in answer or '? ?' in answer:
+            answer = answer.replace('. .', '..').replace('! !', '!!').replace('? ?', '??')
+        # Remove space after the last bit of punctuation.
         answer = answer[:-1]
         return answer
 
-    def answers(self, questions: List[str], max_answer_len: int) -> List[str]:
+    @staticmethod
+    def get_sentences(text: str) -> List[str]:
         """
-        Generates a list of answers based on the given list of questions.
-
-        Args:
-            questions: The list of questions the LLM should respond to.
-            max_answer_len: The maximum length of an answer.
-
-        Returns:
-            The answers given by the LLM.
+        Splits a string into sentences, using punctuation: .!?
+        Keeps the punctuation at the end of each sentence.
         """
-        answers = []
-        for i in range(len(questions)):
-            t = time.time()
-            answers.append(self.answer(questions[i], max_answer_len))
-            print(f'Generated sample {i}/{len(questions)} in {time.time() - t}s ({i / len(questions) * 100}% done)')
+        # Processing the text with a stack.
+        text_stack = [text]
+        # Iterating through each punctuation mark.
+        for p in ['.', '!', '?']:
+            # Going through each item on the text stack, for this punctuation mark, and creating a new text stack for
+            # the next punctuation mark.
+            new_text_stack = []
+            for t in text_stack:
+                # Splitting t on the punctuation mark and removing whitespace.
+                p_split = [sentence.strip() for sentence in t.split(p)]
+                p_list = [p] * (len(p_split) - 1)
+                # text ended with p. We have to remove the trailing '', and add the punctuation back in with zip.
+                if p_split[-1] == '':
+                    p_split = p_split[:-1]
+                    new_text_stack += [sentence + punctuation for (sentence, punctuation) in zip(p_split, p_list)]
+                # text cut off. We have to add the punctuation back in with zip, and add the cut off text back on,
+                # because zip() will get rid of the last thing in p_split.
+                else:
+                    last_sentence = p_split[-1]
+                    new_text_stack += [sentence + punctuation for (sentence, punctuation) in zip(p_split, p_list)]
+                    new_text_stack.append(last_sentence)
+            # Loading the text stack for the next punctuation mark,
+            text_stack = new_text_stack
+        return text_stack
 
     def answer(self, question: str, max_answer_len: int) -> str:
         """
-        Generates an answer based on the given question.
+        Generates an answer based on the given question. Guards against CUDA errors, and will try to get the answer
+        again up to three times if it gets no response from the LLM.
 
         Args:
             question: The question the LLM should respond to.
@@ -144,13 +175,76 @@ class InferenceLLM(ABC):
         Returns:
             The answer given by the LLM.
         """
+        return self.answer_batch({question: ''}, max_answer_len)[question]
+
+    def answers(self, questions: List[str], max_answer_len: int, batch_size: int = 1) -> List[str]:
+        """
+        Generates a list of answers based on the given list of questions.
+
+        Args:
+            questions: The list of questions the LLM should respond to.
+            max_answer_len: The maximum length of an answer.
+            batch_size: The size of the batches of questions to ask the LLM.
+
+        Returns:
+            The answers given by the LLM.
+        """
+        answers = []
+        question_batches = self.get_batches(questions, batch_size)
+        for i in range(len(question_batches)):
+            t = time.time()
+            question_batch = {question: '' for question in question_batches[i]}
+            question_batch = self.answer_batch(question_batch, max_answer_len)
+            answers += [question_batch[question] for question in question_batch.keys()]
+            print(f'Generated batch {i}/{len(question_batches) - 1} in '
+                  f'{time.time() - t}s ({i / (len(question_batches) - 1) * 100}% done)')
+        return answers
+
+    @staticmethod
+    def get_batches(questions: List[str], batch_size: int) -> List[List[str]]:
+        """
+        Splits the questions into batches of size batch_size for batch inference.
+
+        Args:
+            questions: The list of questions to split into batches.
+            batch_size: The size of each batch of questions we want to be generating.
+
+        Returns:
+            A list of lists of questions, representing batches for the model.
+        """
+        return [questions[i: i + batch_size] for i in range(0, len(questions), batch_size)]
+
+    def answer_batch(self, question_batch: Dict[str, str], max_answer_len: int, _current_try: int = 0,
+                     _max_try: int = 3) -> Dict[str, str]:
+        """
+        Generates an batch of answers based on a batch of questions. Guards against CUDA errors, and will try to get the
+        answer again up to three times if it gets no response from the LLM.
+
+        Args:
+            question_batch: The batch of questions the LLM should respond to, which is a mapping of questions to
+                            answers. This is meant to be empty when first supplied.
+            max_answer_len: The maximum length of an answer.
+            _current_try: Recursive parameter used to track which try we are currently executing.
+            _max_try: Recursive parameter used to specify how many times we should re-try for an answer.
+
+        Returns:
+            The batch of answers given by the LLM.
+        """
+        # We ran out of tries. Return the answers we have.
+        if _current_try == _max_try:
+            return question_batch
+
+        # Storing the question_batch keys.
+        question_batch_keys = list(question_batch.keys())
+
         # Encoding the input.
-        encoded_input = self._tokenizer(question, return_tensors="pt", return_attention_mask=True)
+        llm_questions = [question for question in question_batch_keys if question_batch[question] == '']
+        encoded_inputs = self._tokenizer(llm_questions, return_tensors="pt", return_attention_mask=True)
         # Unpacking the input and moving tensors to the GPU if needed.
-        input_ids = encoded_input.input_ids.to(device('cuda')) if self._use_gpu \
-            else encoded_input.input_ids
-        attention_mask = encoded_input.attention_mask.to(device('cuda')) if self._use_gpu \
-            else encoded_input.attention_mask
+        input_ids = encoded_inputs.input_ids.to(device('cuda')) if self._use_gpu \
+            else encoded_inputs.input_ids
+        attention_mask = encoded_inputs.attention_mask.to(device('cuda')) if self._use_gpu \
+            else encoded_inputs.attention_mask
         # Performing the inference.
         encoded_output = self._model.generate(
             input_ids,
@@ -159,7 +253,15 @@ class InferenceLLM(ABC):
             attention_mask=attention_mask
         )
         # Getting text back from the tokenized output.
-        answer = self._tokenizer.batch_decode(encoded_output)[0]
-        # Post-processing the answer.
-        processed_answer = self.postprocess_answer(answer)
-        return processed_answer
+        answers = self._tokenizer.batch_decode(encoded_output)
+        # Post-processing the answers.
+        processed_answers = [self.postprocess_answer(answer) for answer in answers]
+
+        # Inserting the processed answers into the answer_map, or empty_output map if the answer was empty.
+        question_batch = {question_batch_keys[i]: processed_answers[i] for i in range(len(question_batch_keys))}
+        # Re-trying for empty answers if we got any.
+        if '' in question_batch.values():
+            return self.answer_batch(question_batch, max_answer_len, _current_try + 1)
+        # Answer i good, return the output we got.
+        else:
+            return question_batch
