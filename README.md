@@ -20,8 +20,8 @@ This is a list of useful commands. These are to be executed from the project roo
 ## Environment:
 The specs for the env are stored in environment.yml. This makes it easy to use with conda. If you would like to install
 everything manually, the command is:
-- `$ conda install python=3.9 pytorch=2.0 torchvision torchaudio pytorch-cuda=11.8 tensorflow=2.9 sphinx=5 transformers 
-  huggingface_hub tokenizers pytorch-lightning matplotlib numpy pandas nltk scikit-learn seaborn gensim psutil 
+- `$ conda install python=3.9 pytorch=2.0 torchvision torchaudio pytorch-cuda=11.8 tensorflow=2.9 transformers=4.28.1 
+  huggingface_hub tokenizers pytorch-lightning sphinx=5 matplotlib numpy pandas nltk scikit-learn seaborn gensim psutil 
   sphinx_rtd_theme -c pytorch -c nvidia -c HuggingFace -c anaconda -c conda-forge`
   
 ## Generating Documentation:

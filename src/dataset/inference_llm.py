@@ -98,10 +98,10 @@ class InferenceLLM(ABC):
             # Removing the last sentence if it does not end in correct punctuation (cut off answer).
             if sentences[-1][-1] not in '.!?':
                 sentences = sentences[:-1]
-        else:
+        elif len(sentences) == 1:
             # Adding a period to a partial answer if there was only 1 sentence.
             if sentences[-1][-1] not in '.!?':
-                sentences[-1].append('.')
+                sentences[-1] += '.'
         # Looking for repeats one after the other, and removing them.
         last_sentence = ''
         for i in range(len(sentences)):

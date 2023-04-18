@@ -153,7 +153,7 @@ class MSMarcoDataset(Sequence):
         query_types = list(np.empty((n,)))
         for key in data['query_type'].keys():
             i = int(key)
-            query_types[i] = MSMarcoQueryType[data['query_type'][key]]
+            query_types[i] = MSMarcoQueryType(data['query_type'][key])
         return query_types
 
     @staticmethod

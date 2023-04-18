@@ -124,7 +124,7 @@ def _add_element_to_output(index: int, element: MSMarcoItem, output: Dict[str, A
         The output dict, with the element added.
     """
     output['query'][str(index)] = element.query
-    output['query_type'][str(index)] = str(element.query_type)
+    output['query_type'][str(index)] = element.query_type.value
     output['query_id'][str(index)] = index
     output['passages'][str(index)] = _get_ms_marco_passages(element)
     answers, well_formed_answers = _get_ms_marco_answers(element, well_formed)

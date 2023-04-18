@@ -120,7 +120,7 @@ class TestInferenceLLM(unittest.TestCase):
 
     def test_answer(self):
         """
-        Ensures the llm can correctly generate an answer for a single question.
+        Ensures the llm can correctly generate an answer for a single short question.
         """
         for model_name in self.model_names:
             with self.subTest(model_name=model_name):
@@ -144,7 +144,7 @@ class TestInferenceLLM(unittest.TestCase):
 
     def test_answers(self):
         """
-        Ensures the llm can correctly generate a set of answers for multiple questions.
+        Ensures the llm can correctly generate a set of answers for multiple short questions.
         """
         for model_name in self.model_names:
             with self.subTest(model_name=model_name):
