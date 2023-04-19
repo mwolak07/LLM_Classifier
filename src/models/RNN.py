@@ -2,6 +2,8 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
+from src.dataset import LLMClassifierDataset
+
 print("preparing to create dataset")
 
 

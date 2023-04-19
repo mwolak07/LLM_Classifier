@@ -1,0 +1,121 @@
+import numpy as np
+import sklearn as sk
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.datasets import load_iris
+from sklearn import svm
+import gensim
+from gensim.models import fasttext
+#import shap
+import re
+
+
+
+from src.dataset import LLMClassifierDataset
+
+
+print("WE IN BABY")
+
+#returns predictions on test data using LogReg model
+def generateLogisticRegression(data, classes, predictMe):
+    model = LogisticRegression(penalty='l2', max_iter = 250).fit(data, classes)
+    return model.predict(predictMe)
+    
+#returns predictions on test data using Naive Bayes model
+def generateNaiveBayes(data, classes, predictMe):
+    model = GaussianNB().fit(data,classes)
+    return model.predict(predictMe)
+    
+#prec, f1, recall, aucroc, returns all 4 in tuple
+def runMetrics(predicted, actual):
+    prec = sk.metrics.precision_score(actual, predicted)
+    f1 = sk.metrics.f1_score(actual, predicted)
+    recall = sk.metrics.recall_score(actual, predicted)
+    aucroc = sk.metrics.roc_auc_score(actual, predicted)
+    print("Precision score of the model:", prec)
+    print("F1 score of the model", f1)
+    print("Recall score of the model", recall)
+    print("AUCROC of the model", aucroc)
+    return (prec, f1, recall, aucroc)
+
+#to test the iris data set, wont be used on real dataset
+def runMetricsMulticlass(predicted, actual):
+    prec = sk.metrics.precision_score(actual, predicted, average = 'micro')
+    f1 = sk.metrics.f1_score(actual, predicted, average = 'micro')
+    recall = sk.metrics.recall_score(actual, predicted, average = 'micro')
+    print("Precision score of the model:", prec)
+    print("F1 score of the model", f1)
+    print("Recall score of the model", recall)
+    return [prec, f1, recall]
+
+
+print("making fastext")
+model_path = "src/models/wiki.en.bin"
+gensimModel = gensim.models.fasttext.load_facebook_model(model_path)
+# gensimModel = gensim.models.FastText.load(model_path)
+
+print("made it")
+
+#data should be [[[sent vect][sent vect]],[list of sent in response],[list of sent in response],response,response], 
+# where n is number of responses, X1 is number of sentences in response, X2 is word vector
+def runfasttext(data):
+    fasttextout = []#will need to be an array :*(
+    for i in range(len(data)):
+        fasttextout.append(re.split('.?!', data[i]))#split across sentences
+        for j in range(len(fasttextout[i])):
+            print(fasttextout[i][j] + " sentence")
+            fasttextout[i][j] = gensimModel.get_sentence_vector(fasttextout[i][j])
+    return fasttextout
+    
+#data should be [[[sent vect][sent vect]],[list of sent in response],[list of sent in response],response,response], 
+#where n is number of responses, X1 is number of sentences in response, X2 is word vector
+#result of this should hopefully standardize the number of sent vect per response, 
+#so the array is (n,max_seq_length,gensim.model.vector_size)
+def padInput(data):   
+    max_seq_length = max(len(seq) for seq in data)
+    padData = np.array([])
+    for i in range(len(data)):
+        #amount of missing sentence vectors
+        fixedColumn = np.array(data[i]).reshape(-1,len(data[i][0]))
+        
+        #we are padding j times, so that len(fixedColumn) = max_seq
+        for j in range(max_seq_length - len(data[i])):
+            fixedColumn = np.append(np.array(data[i]),np.zeros(gensim.model.vector_size)).reshape(-1,gensim.model.vector_size)
+        padData = np.append(padData, fixedColumn).reshape(-1,len(fixedColumn),gensim.model.vector_size)
+    return padData
+
+
+print("database")
+
+dbdata = LLMClassifierDataset(db_path="src/models/test_short_prompts.sqlite3", load_to_memory=False)
+dbdata = dbdata.tolist()
+allData = np.array([])
+allLabels = np.array([])
+for i in range(len(dbdata)):
+    allData = np.append(allData,dbdata[i][0])
+    allLabels = np.append(allLabels,dbdata[i][1])
+    
+#this should make a marco and llm dataset
+#will have N elements, each element will be the prompt string with the answer strong attatched at the end
+
+allData = runfasttext(allData)
+allData = padInput(allData)
+p = np.random.permutation(len(allData))
+allData = allData[p]
+allLabels = allLabels[p]
+trainData = allData[0:4*len(allData)/5]
+trainLabels = allLabels[0:4*len(allData)/5]
+testData = allData[4*len(allData)/5:len(allData)]
+testLabels = allLabels[4*len(allData)/5:len(allData)]
+
+predClassLog = generateLogisticRegression(trainData,trainLabels,testData)
+predClassBayes = generateNaiveBayes(trainData,trainLabels,testData)
+runMetrics(predClassLog,testLabels)
+runMetrics(predClassBayes,testLabels)
+
+
+
+
+
+
