@@ -130,7 +130,7 @@ class LLMClassifierDataset(Sequence, Dataset):
         # he database would not be populated.
         print('Inserting LLM answers into the database...')
         answer_lengths = [len(answer) for answer in self._db.human_answers()]
-        max_answer_len = int(round(statistics.mean(answer_lengths) + (statistics.stdev(answer_lengths) * 3)))
+        max_answer_len = int(round(statistics.mean(answer_lengths) + (statistics.stdev(answer_lengths))))
         self.llm_answers_to_db(llm=llm, max_answer_len=max_answer_len, prompts=self._db.prompts(),
                                batch_size=batch_size, start_answer_index=0, start_batch_index=0)
 
