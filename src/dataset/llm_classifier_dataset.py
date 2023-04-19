@@ -134,7 +134,6 @@ class LLMClassifierDataset(Sequence, Dataset):
         print('Done')
         print('Inserting prompts into the database...')
         prompts = [self.prompt(row.passages, row.query) for row in rows]
-        print('Done')
         self._db.add_prompts(prompts)
         del prompts
         print('Done')
@@ -191,6 +190,7 @@ class LLMClassifierDataset(Sequence, Dataset):
         """
         answer_index = start_index
         prompt_batches = llm.get_batches(prompts, batch_size)
+        print(f'Generating answers in {len(prompt_batches)} batches...')
         for i in range(len(prompt_batches)):
             t = time.time()
             prompt_batch = prompt_batches[i]
@@ -199,8 +199,11 @@ class LLMClassifierDataset(Sequence, Dataset):
                 answer_batch, tries = llm.answer_batch(prompt_batch, answer_batch, max_answer_len)
             except cuda.CudaError or cuda.OutOfMemoryError or RuntimeError or ValueError as e:
                 print(f'WARNING! Could not generate answers for batch {i}: {str(e)}')
+            print(f'Adding LLM answers to DB...')
             for answer in answer_batch:
                 self._db.add_llm_answer(answer, answer_index)
                 answer_index += 1
+            print(f'Done')
             print(f'Generated batch {i + 1}/{len(prompt_batches)} in {time.time() - t}s '
                   f'{(i + 1) / len(prompt_batches) * 100}%)')
+        print('Done')
