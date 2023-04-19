@@ -6,7 +6,6 @@ from abc import ABC
 import numpy as np
 import json
 import time
-import math
 from src.util import cd_to_executing_file, get_ram_gb, get_vram_gb
 
 
@@ -105,7 +104,8 @@ class InferenceLLM(ABC):
         if answer == '' or answer is None:
             return ''
         # Removing the context prompt.
-        answer = answer.split('The answer, in complete sentences, to the question:')[1].split(', is:')[1]
+        no_context = answer.split('The short answer, in complete sentences, to the question:')[1]
+        answer = no_context.split(', is:')[1]
         # Getting the sentences.
         sentences = InferenceLLM.get_sentences(answer)
         # If we have no sentences, return ''.
@@ -206,8 +206,8 @@ class InferenceLLM(ABC):
         print(f'Num questions: {len(questions)}')
         answers = np.full((len(questions),), '')
         tries_list = np.full((len(questions),), -1)
-        num_batches = math.ceil(len(questions) / batch_size)
-        question_batches = np.array_split(np.array(questions), num_batches)
+        questions = np.array(questions)
+        question_batches = self.get_batches(questions, batch_size)
         print(f'Batch lengths: {[len(batch) for batch in question_batches]}')
         answer_index = 0
         for i in range(len(question_batches)):
@@ -219,12 +219,13 @@ class InferenceLLM(ABC):
                 answers[answer_index] = answer
                 tries_list[answer_index] = tries
                 answer_index += 1
-            print(f'Generated batch {i + 1}/{num_batches} in {time.time() - t}s {(i + 1) / num_batches * 100}%)')
-        print(f'Answer lengths: {[len(answer) for answer in answers]}')
+            print(f'Generated batch {i + 1}/{len(question_batches)} in {time.time() - t}s '
+                  f'{(i + 1) / len(question_batches) * 100}%)')
+        print(f'Num answers: {len(answers)}')
         return answers.tolist(), tries_list.tolist()
 
     @staticmethod
-    def get_batches(questions: List[str], batch_size: int) -> ndarray[ndarray[str]]:
+    def get_batches(questions: ndarray[str], batch_size: int) -> ndarray[ndarray[str]]:
         """
         Splits the questions into batches of size batch_size for batch inference, and converts to numpy arrays.
 
@@ -235,7 +236,8 @@ class InferenceLLM(ABC):
         Returns:
             A list of lists of questions, representing batches for the model, as a numpy array.
         """
-        return np.array_split(np.array(questions), batch_size)
+        batches = np.array_split(questions, np.arange(batch_size, len(questions), batch_size))
+        return np.array([np.array(batch) for batch in batches])
 
     def answer_batch(self, question_batch: ndarray[str], answer_batch: ndarray[str], max_answer_len: int,
                      _current_try: int = 0, _max_try: int = 3) -> Tuple[ndarray[str], int]:

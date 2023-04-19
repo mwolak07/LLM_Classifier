@@ -206,14 +206,16 @@ class TestInferenceLLM(ABC):
     Attributes:
         test_questions_path: (class attribute) The path to test_questions.json from test root.
         llm: The Inference LLM we are using in this test. To be initialized in setUp in child tests.
-        max_prompt: The max-size prompt from the mock MS MARCO dataset.
-        random_prompts: The random prompts from the mock MS MARCO dataset.
+        max_long_prompt: The max-size long prompt from the mock MS MARCO dataset.
+        max_short_prompt: The max-size short prompt from the mock MS MARCO dataset.
+        ms_marco_prompts: The random prompts from the mock MS MARCO dataset.
     """
     ms_marco_file = 'mock_data_ms_marco.json'
     max_prompts_file = 'mock_data_max_prompts.json'
     llm: InferenceLLM
-    max_prompt: str
-    random_questions: List[str]
+    max_long_prompt: str
+    max_short_prompt: str
+    ms_marco_prompts: List[str]
 
     @classmethod
     def setUpClass(cls):
@@ -221,7 +223,7 @@ class TestInferenceLLM(ABC):
         Ensures test_questions.json exists and writes it if it does not.
         """
         # Write questions if needed.
-        if not os.path.exists(cls.mock_ms_marco_path):
+        if not os.path.exists(cls.ms_marco_file):
             write_mock_ms_marco_data()
         # Setting up the llm.
         cls.llm = InferenceLLM(cls.model_name())
@@ -243,7 +245,7 @@ class TestInferenceLLM(ABC):
         """
         # Cd to the directory this file is in.
         cd_to_executing_file(__file__)
-        self.load_test_questions()
+        self.load_mock_data()
 
     def load_mock_data(self) -> None:
         """
@@ -253,7 +255,7 @@ class TestInferenceLLM(ABC):
         dataset = MSMarcoDataset(self.ms_marco_file)
         # Storing the ms_marco prompts.
         self.ms_marco_prompts = [LLMClassifierDataset.prompt(element.chosen_passages, element.query) for element in
-                                 dataset if len(element.answer) > 0]
+                                 dataset if len(element.answers) > 0]
         # Storing the max prompts.
         with open(self.max_prompts_file, 'r') as f:
             data = json.load(f)
@@ -296,13 +298,13 @@ class TestInferenceLLM(ABC):
             with self.subTest(batch_size=batch_size):
                 # Ensuring we have enough prompts to fill our batch_size.
                 print(f'\nBatch size: {batch_size}')
-                if len(self.random_prompts) > batch_size:
+                if len(self.ms_marco_prompts) > batch_size:
                     prompts = self.ms_marco_prompts
                 else:
-                    prompts = self.ms_marco_prompts * (batch_size // len(self.random_prompts) + 1)
+                    prompts = self.ms_marco_prompts * (batch_size // len(self.ms_marco_prompts) + 1)
                 # Computing the answers.
                 answers, tries_list = self.llm.answers(prompts, max_answer_len=250, batch_size=batch_size)
-                self.assertTrue(len(answers) == len(self.random_prompts))
+                self.assertTrue(len(answers) == len(prompts))
                 for answer, tries in zip(answers, tries_list):
                     self.assertTrue(isinstance(answer, str))
                     self.assertTrue(len(answer) > 0 or tries == 3)
@@ -319,7 +321,7 @@ class TestInferenceLLM(ABC):
                 prompts = self.max_long_prompt * batch_size * 2
                 # Computing the answers.
                 answers, tries_list = self.llm.answers(prompts, max_answer_len=250, batch_size=batch_size)
-                self.assertTrue(len(answers) == len(self.random_prompts))
+                self.assertTrue(len(answers) == len(prompts))
                 for answer, tries in zip(answers, tries_list):
                     self.assertTrue(isinstance(answer, str))
                     self.assertTrue(len(answer) > 0 or tries == 3)
@@ -336,7 +338,7 @@ class TestInferenceLLM(ABC):
                 prompts = self.max_short_prompt * batch_size * 2
                 # Computing the answers.
                 answers, tries_list = self.llm.answers(prompts, max_answer_len=250, batch_size=batch_size)
-                self.assertTrue(len(answers) == len(self.random_prompts))
+                self.assertTrue(len(answers) == len(prompts))
                 for answer, tries in zip(answers, tries_list):
                     self.assertTrue(isinstance(answer, str))
                     self.assertTrue(len(answer) > 0 or tries == 3)

@@ -24,6 +24,9 @@ class LLMClassifierDataset(Sequence, Dataset):
         _db: The database containing the gpt classifier dataset.
         _data: A list of Tuples of (feature, label), if we chose to load the entire dataset into memory.
     """
+    prompt_into: str = 'Using only the following context:'
+    prompt_question: str = 'The short answer, in complete sentences, to the question:'
+    prompt_end: str = ', is:'
     _vectorizer: None = None
     _vectorize: bool
     _db: LLMClassifierDatabase
@@ -154,11 +157,11 @@ class LLMClassifierDataset(Sequence, Dataset):
         if query[-1] == '?':
             query = query[:-1]
         # Providing the model the context passages.
-        output = 'Using only the following context:\n'
+        output = f'Using only the following context:\n'
         for passage in passages:
             output += passage + '\n\n'
         # Providing the model the query.
-        output += f'The answer, in complete sentences, to the question: "{query}?", is:\n'
+        output += f'The short answer, in complete sentences, to the question: "{query}?", is:\n'
         return output
 
     def llm_answers_to_db(self, llm: InferenceLLM, max_answer_len: int, prompts: List[str], batch_size: int = 1,
@@ -175,18 +178,16 @@ class LLMClassifierDataset(Sequence, Dataset):
             batch_size: The size of the batches to run the inference with.
             start_index: The index to start inserting answers at (default is 0, but can be higher if we are resuming).
         """
-        answer_index = start_index
-        num_batches = math.ceil(len(prompts) / batch_size)
-        prompt_batches = np.array_split(np.array(prompts), num_batches)
+        prompts = np.array(prompts)
+        prompt_batches = llm.get_batches(prompts, batch_size)
+        answer_index = 0
         for i in range(len(prompt_batches)):
             t = time.time()
             prompt_batch = prompt_batches[i]
             answer_batch = np.full((len(prompt_batch),), '')
-            try:
-                answer_batch, tries = llm.answer_batch(prompt_batch, answer_batch, max_answer_len)
-            except cuda.OutOfMemoryError or cuda.CudaError or RuntimeError as e:
-                print(f'WARNING: Unable to generate answer for batch {i}: {str(e)}')
+            answer_batch, tries = llm.answer_batch(prompt_batch, answer_batch, max_answer_len)
             for answer in answer_batch:
                 self._db.add_llm_answer(answer, answer_index)
                 answer_index += 1
-            print(f'Generated batch {i + 1}/{num_batches} in {time.time() - t}s {(i + 1) / num_batches * 100}%)')
+            print(f'Generated batch {i + 1}/{len(prompt_batches)} in {time.time() - t}s '
+                  f'{(i + 1) / len(prompt_batches) * 100}%)')
