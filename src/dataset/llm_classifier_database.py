@@ -97,6 +97,16 @@ class LLMClassifierDatabase(Sequence):
         result = self.execute(statement).fetchone()
         return result[0]
 
+    def tolist(self) -> List[LLMClassifierRow]:
+        """
+        Converts the entire database to a list of rows, moving the entire thing into memory.
+        """
+        if not self.table_exists():
+            return []
+        statement = f'SELECT * FROM {self.table_name};'
+        result = self.execute(statement).fetchall()
+        return [self.decode_row(row) for row in result]
+
     def execute(self, sql: str, parameters: Iterable[Any] = ()) -> Cursor:
         """
         Uses the internal self._cursor to execute an SQL statement on the database. Supports exactly the same

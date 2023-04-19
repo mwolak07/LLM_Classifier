@@ -129,8 +129,12 @@ class LLMClassifierDataset(Sequence, Dataset):
         del ms_marco_dataset
         print('Done')
         # Adding the prompts to the database, and clearing them from memory when we are done.
+        print('Getting the database rows...')
+        rows = self._db.tolist()
+        print('Done')
         print('Inserting prompts into the database...')
-        prompts = [self.prompt(row.passages, row.query) for row in self._db]
+        prompts = [self.prompt(row.passages, row.query) for row in rows]
+        print('Done')
         self._db.add_prompts(prompts)
         del prompts
         print('Done')
@@ -191,7 +195,10 @@ class LLMClassifierDataset(Sequence, Dataset):
             t = time.time()
             prompt_batch = prompt_batches[i]
             answer_batch = np.full((len(prompt_batch),), '')
-            answer_batch, tries = llm.answer_batch(prompt_batch, answer_batch, max_answer_len)
+            try:
+                answer_batch, tries = llm.answer_batch(prompt_batch, answer_batch, max_answer_len)
+            except cuda.CudaError or cuda.OutOfMemoryError or RuntimeError or ValueError as e:
+                print(f'WARNING! Could not generate answers for batch {i}: {str(e)}')
             for answer in answer_batch:
                 self._db.add_llm_answer(answer, answer_index)
                 answer_index += 1

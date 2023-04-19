@@ -17,8 +17,12 @@ def generate_dataset(ms_marco_path: str, short_prompts: bool, llm: InferenceLLM,
         db_path: The path we will be writing our database to.
     """
     # Setting up the MSMarcoDataset and LLMClassifierDataset objects.
+    print('Creating the database...')
     dataset = LLMClassifierDataset(db_path=db_path)
+    print('Done')
+    print('Reading the MS MARCO dataset...')
     ms_marco = MSMarcoDataset(ms_marco_path)
+    print('Done')
     # Creating the database.
     dataset.create_database(ms_marco_dataset=ms_marco, llm=llm, short_prompts=short_prompts, batch_size=batch_size)
 
@@ -53,8 +57,10 @@ def generate_datasets():
     """
     Generates a dataset for each inference llm.
     """
-    # generate_datasets_for_llm(InferenceLLM('facebook/opt-1.3b'), '../../data/opt_1_3B')
-    generate_datasets_for_llm(InferenceLLM('bigscience/bloom-1b1'), '../../data/bloom_1_1B', batch_size=16)
+    print(f'Loading model into memory...')
+    llm = InferenceLLM('bigscience/bloom-1b1')
+    print(f'Done')
+    generate_datasets_for_llm(llm=llm, db_folder='../../data/bloom_1_1B', batch_size=16)
 
 
 if __name__ == '__main__':
