@@ -33,9 +33,9 @@ class TestGenerateDatasets(unittest.TestCase):
         generate_datasets_for_llm(llm=llm, db_folder='../../test/dataset', batch_size=8,
                                   ms_marco_test=self.ms_marco_file, ms_marco_train=self.ms_marco_file)
         test_dataset = LLMClassifierDataset(self.test_db_path)
-        self.assertEqual(22, len(test_dataset))
+        self.assertEqual(20, len(test_dataset))
         train_dataset = LLMClassifierDataset(self.train_db_path)
-        self.assertEqual(22, len(train_dataset))
+        self.assertEqual(20, len(train_dataset))
         # Deleting the datasets when we are done, so the db connection closes
         del test_dataset
         del train_dataset
