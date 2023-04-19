@@ -411,3 +411,11 @@ class LLMClassifierDatabase(Sequence):
         statement = f'DROP TABLE {self.table_name};'
         self.execute(statement)
         self.commit()
+
+    def clear_empty_rows(self) -> None:
+        """
+        Deletes rows that have NULL for llm_answer.
+        """
+        statement = f'DELETE FROM {self.table_name} WHERE llm_answer is NULL;'
+        self.execute(statement)
+        self.commit()

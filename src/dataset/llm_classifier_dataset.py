@@ -143,23 +143,19 @@ class LLMClassifierDataset(Sequence, Dataset):
         print('Inserting MS MARCO into the database...')
         self._db.add_ms_marco_dataset(ms_marco_dataset, short_prompts)
         del ms_marco_dataset
-        print('Done')
         # Adding the prompts to the database, and clearing them from memory when we are done.
         print('Getting the database rows...')
         rows = self._db.tolist()
-        print('Done')
         print('Inserting prompts into the database...')
         prompts = [self.prompt(row.passages, row.query) for row in rows]
         self._db.add_prompts(prompts)
         del prompts
-        print('Done')
         # Adding the LLM answers to the database. We don't use the more convenient answers(), because if we stop midway,
         # he database would not be populated.
         print('Inserting LLM answers into the database...')
         max_answer_len = max([len(answer) for answer in self._db.human_answers()])
         self.llm_answers_to_db(llm=llm, max_answer_len=max_answer_len, prompts=self._db.prompts(),
                                batch_size=batch_size, start_index=0)
-        print('Done')
 
     @staticmethod
     def prompt(passages: List[str], query: str) -> str:
