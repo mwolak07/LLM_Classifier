@@ -95,8 +95,10 @@ class LLMClassifierDataset(Sequence, Dataset):
         Returns:
             This dataset as a list.
         """
-        data = self._load_dataset_to_memory()
-        return data
+        if self._data is not None:
+            return self._data.copy()
+        else:
+            return self._load_dataset_to_memory()
 
     def create_database(self, ms_marco_dataset: MSMarcoDataset, llm: InferenceLLM, short_prompts: bool = True,
                         batch_size: int = 1) -> None:
