@@ -155,7 +155,7 @@ class LLMClassifierDataset(Sequence, Dataset):
         print('Inserting LLM answers into the database...')
         max_answer_len = max([len(answer) for answer in self._db.human_answers()])
         self.llm_answers_to_db(llm=llm, max_answer_len=max_answer_len, prompts=self._db.prompts(),
-                               batch_size=batch_size, start_index=0)
+                               batch_size=batch_size, start_answer_index=0, start_batch_index=0)
 
     @staticmethod
     def prompt(passages: List[str], query: str) -> str:
@@ -187,7 +187,7 @@ class LLMClassifierDataset(Sequence, Dataset):
         return output
 
     def llm_answers_to_db(self, llm: InferenceLLM, max_answer_len: int, prompts: List[str], batch_size: int = 1,
-                          start_index: int = 0) -> None:
+                          start_answer_index: int = 0, start_batch_index: int = 0) -> None:
         """
         Adds answers to the database from the LLM using batch inference. We do it in a custom loop like this, because
         then we are able to store results in the database at each step, and so we can ensure interrupted inference or
@@ -198,12 +198,15 @@ class LLMClassifierDataset(Sequence, Dataset):
             max_answer_len: The maximum length for an answer from the LLM.
             prompts: The list of prompts to generate responses for.
             batch_size: The size of the batches to run the inference with.
-            start_index: The index to start inserting answers at (default is 0, but can be higher if we are resuming).
+            start_answer_index: The index to start inserting answers at (default is 0, but can be higher if we are
+                                resuming).
+            start_batch_index: The index to answering question batches at (default is 0, but can be higher if we are
+                                resuming).
         """
-        answer_index = start_index
+        answer_index = start_answer_index
         prompt_batches = llm.get_batches(prompts, batch_size)
         print(f'Generating answers in {len(prompt_batches)} batches of size {batch_size}...')
-        for i in range(len(prompt_batches)):
+        for i in range(start_batch_index, len(prompt_batches)):
             t = time.time()
             prompt_batch = prompt_batches[i]
             answer_batch = np.full((len(prompt_batch),), '')
@@ -215,5 +218,6 @@ class LLMClassifierDataset(Sequence, Dataset):
                 print(f'WARNING! Could not generate answers for batch {i}: {str(e)}')
             print(f'Adding LLM answers to DB...')
             for answer in answer_batch:
+                print(answer)
                 self._db.add_llm_answer(answer, answer_index)
                 answer_index += 1
