@@ -7,13 +7,12 @@ from sklearn.datasets import load_iris
 from sklearn import svm
 import gensim
 from gensim.models import fasttext
-#import shap
+import shap
 import re
 
 
 
 from src.dataset import LLMClassifierDataset
-
 
 print("WE IN BABY")
 
@@ -90,6 +89,8 @@ def padInput(data):
 
 
 print("database")
+dbdata = LLMClassifierDataset(db_path="src/models/test_short_prompts.sqlite3", load_to_memory=False)
+dbdata = dbdata.tolist()
 
 dbdata = LLMClassifierDataset(db_path="src/models/test_short_prompts.sqlite3", load_to_memory=False)
 dbdata = dbdata.tolist()
@@ -107,10 +108,10 @@ allData = np.array(padInput(allData))
 p = np.random.permutation(len(allData))
 allData = allData[p]
 allLabels = allLabels[p]
-trainData = allData[0:int(4*len(allData)/5)]
-trainLabels = allLabels[0:int(4*len(allData)/5)]
-testData = allData[int(4*len(allData)/5):len(allData)]
-testLabels = allLabels[int(4*len(allData)/5):len(allData)]
+trainData = allData[0:int(1*len(allData)/2)]
+trainLabels = allLabels[0:int(1*len(allData)/2)]
+testData = allData[int(1*len(allData)/2):len(allData)]
+testLabels = allLabels[int(1*len(allData)/2):len(allData)]
 
 print(np.shape(trainData))
 print(np.shape(testData))
