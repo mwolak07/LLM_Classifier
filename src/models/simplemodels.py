@@ -136,5 +136,21 @@ runMetrics(predClassBayes,testLabels)
 
 
 
+logRegModel = LogisticRegression().fit(flatTrain, trainLabels)
+explainer = shap.LinearExplainer(logRegModel, flatTrain)
+shap_values = explainer.shap_values(flatTrain)
+bapValues = explainer(flatTest)
+    
+shap.initjs()
+shap.plots.beeswarm(bapValues)
 
+
+
+guassModel = GaussianNB(penalty='l2', max_iter = 250).fit(flatTrain, trainLabels)
+explainerNB = shap.LinearExplainer(guassModel, flatTrain)
+shap_valuesNB = explainerNB.shap_values(flatTrain)
+bapValuesNB = explainerNB(flatTest)
+    
+shap.initjs()
+shap.plots.beeswarm(bapValuesNB)
 
