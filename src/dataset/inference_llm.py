@@ -271,14 +271,21 @@ class InferenceLLM(ABC):
             raise ValueError(f'Answer and question batch dimensions do not match!: '
                              f'{len(answer_batch)} != {len(question_batch)}')
 
+        print(f'Pre answer batch: {answer_batch}')
+
         # Getting the indices of the questions with no answers, and the questions with no answers.
         empty_indices = np.where(answer_batch == '')
         llm_questions = question_batch[empty_indices]
 
+        print(f'empty indices: {empty_indices}')
+
         # Checking the llm questions, and generating the answers for them. Ensures the answers go to the indices that
         # had the empty elements.
         self.check_question_lengths(llm_questions)
-        answer_batch[empty_indices] = self.generate_batch(llm_questions, max_answer_len)
+        new_answer_batch = self.generate_batch(llm_questions, max_answer_len)
+        print(f'new answer batch: {new_answer_batch}')
+        answer_batch[empty_indices] = new_answer_batch
+        print(f'new new answer batch: {answer_batch}')
 
         # Re-trying for empty answers if we got any.
         empty_indices = np.where(answer_batch == '')
@@ -334,6 +341,8 @@ class InferenceLLM(ABC):
         )
         # Getting text back from the tokenized output.
         answers = np.array(self._tokenizer.batch_decode(encoded_output))
+        print(f'raw answers: {answers}')
         # Post-processing the answers.
-        postprocess_fn = np.vectorize(self.postprocess_answer)
-        return postprocess_fn(answers)
+        processed_answers = np.array([self.postprocess_answer(answer) for answer in answers])
+        print(f'post processed answers: {processed_answers}')
+        return processed_answers

@@ -270,7 +270,7 @@ class TestInferenceLLM(ABC):
         for prompt in self.ms_marco_prompts:
             answer, tries = self.llm.answer(prompt, max_answer_len=250)
             self.assertTrue(isinstance(answer, str))
-            self.assertTrue(len(answer) > 0 or tries == 3)
+            self.assertTrue(len(answer) > 1 or tries == 3)
 
     def test_answer_max_long_question(self):
         """
@@ -279,7 +279,7 @@ class TestInferenceLLM(ABC):
         """
         answer, tries = self.llm.answer(self.max_long_prompt, max_answer_len=250)
         self.assertTrue(isinstance(answer, str))
-        self.assertTrue(len(answer) > 0 or tries == 3)
+        self.assertTrue(len(answer) > 1 or tries == 3)
 
     def test_answer_max_short_question(self):
         """
@@ -288,7 +288,7 @@ class TestInferenceLLM(ABC):
         """
         answer, tries = self.llm.answer(self.max_short_prompt, max_answer_len=250)
         self.assertTrue(isinstance(answer, str))
-        self.assertTrue(len(answer) > 0 or tries == 3)
+        self.assertTrue(len(answer) > 1 or tries == 3)
 
     def test_answers_batch_n(self):
         """
@@ -307,7 +307,7 @@ class TestInferenceLLM(ABC):
                 self.assertTrue(len(answers) == len(prompts))
                 for answer, tries in zip(answers, tries_list):
                     self.assertTrue(isinstance(answer, str))
-                    self.assertTrue(len(answer) > 0 or tries == 3)
+                    self.assertTrue(len(answer) > 1 or tries == 3)
 
     def test_answers_max_long_question_batch_n(self):
         """
@@ -324,7 +324,7 @@ class TestInferenceLLM(ABC):
                 self.assertTrue(len(answers) == len(prompts))
                 for answer, tries in zip(answers, tries_list):
                     self.assertTrue(isinstance(answer, str))
-                    self.assertTrue(len(answer) > 0 or tries == 3)
+                    self.assertTrue(len(answer) > 1 or tries == 3)
 
     def test_answers_max_short_question_batch_n(self):
         """
@@ -341,7 +341,7 @@ class TestInferenceLLM(ABC):
                 self.assertTrue(len(answers) == len(prompts))
                 for answer, tries in zip(answers, tries_list):
                     self.assertTrue(isinstance(answer, str))
-                    self.assertTrue(len(answer) > 0 or tries == 3)
+                    self.assertTrue(len(answer) > 1 or tries == 3)
 
 
 class TestBloom11B(TestInferenceLLM, unittest.TestCase):
