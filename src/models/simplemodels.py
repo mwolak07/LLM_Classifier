@@ -62,7 +62,7 @@ print("made it")
 def runfasttext(data):
     fasttextout = []#will need to be an array :*(
     for element in data:
-        words = data.split(' ')
+        words = element.split(' ')
         vectors = []
         for word in words:
             vectors.append(gensimModel.wv[word])
@@ -75,15 +75,17 @@ def runfasttext(data):
 #so the array is (n,max_seq_length,gensim.model.vector_size)
 def padInput(data):   
     max_seq_length = max(len(seq) for seq in data)
-    padData = np.array([])
+    print(str(max_seq_length) + "MAXXXXXXXX")
+    padData = []
+    vecSize = len(data[0][0])
     for i in range(len(data)):
         #amount of missing sentence vectors
-        fixedColumn = np.array(data[i]).reshape(-1,len(data[i][0]))
+        fixedCol = data[i]
         
         #we are padding j times, so that len(fixedColumn) = max_seq
         for j in range(max_seq_length - len(data[i])):
-            fixedColumn = np.append(np.array(data[i]),np.zeros(gensim.model.vector_size)).reshape(-1,gensim.model.vector_size)
-        padData = np.append(padData, fixedColumn).reshape(-1,len(fixedColumn),gensim.model.vector_size)
+            fixedCol.append(np.zeros(vecSize))
+        padData.append(fixedCol)
     return padData
 
 
@@ -101,18 +103,33 @@ for i in range(len(dbdata)):
 #will have N elements, each element will be the prompt string with the answer strong attatched at the end
 
 allData = runfasttext(allData)
-allData = padInput(allData)
+allData = np.array(padInput(allData))
 p = np.random.permutation(len(allData))
 allData = allData[p]
 allLabels = allLabels[p]
-trainData = allData[0:4*len(allData)/5]
-trainLabels = allLabels[0:4*len(allData)/5]
-testData = allData[4*len(allData)/5:len(allData)]
-testLabels = allLabels[4*len(allData)/5:len(allData)]
+trainData = allData[0:int(4*len(allData)/5)]
+trainLabels = allLabels[0:int(4*len(allData)/5)]
+testData = allData[int(4*len(allData)/5):len(allData)]
+testLabels = allLabels[int(4*len(allData)/5):len(allData)]
 
-predClassLog = generateLogisticRegression(trainData,trainLabels,testData)
-predClassBayes = generateNaiveBayes(trainData,trainLabels,testData)
+print(np.shape(trainData))
+print(np.shape(testData))
+
+#flatten a dimension for models because apparently needed
+flatTrain = []
+flatTest = []
+for i in range(len(trainData)):
+    flatTrain.append(np.mean(trainData[i],axis = 0))
+for i in range(len(testData)):
+    flatTest.append(np.mean(testData[i],axis = 0))
+flatTrain = np.array(flatTrain)
+flatTest = np.array(flatTest)
+
+predClassLog = generateLogisticRegression(flatTrain,trainLabels,flatTest)
+print(predClassLog)
 runMetrics(predClassLog,testLabels)
+predClassBayes = generateNaiveBayes(flatTrain,trainLabels,flatTest)
+print(predClassBayes)
 runMetrics(predClassBayes,testLabels)
 
 
