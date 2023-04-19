@@ -19,20 +19,16 @@ class LLMClassifierDataset(Sequence, Dataset):
     Uses GPTClassifierDatabase internally to store the dataset on disk.
 
     Attributes:
-        _vectorizer: (class attribute) The vectorizer to transform strings into vectors.
-        _vectorize: If True, then we apply a vectorizer to every feature string.
         _db: The database containing the gpt classifier dataset.
         _data: A list of Tuples of (feature, label), if we chose to load the entire dataset into memory.
     """
     prompt_into: str = 'Using only the following context:'
     prompt_question: str = 'The short answer, in complete sentences, to the question:'
     prompt_end: str = ', is:'
-    _vectorizer: None = None
-    _vectorize: bool
     _db: LLMClassifierDatabase
     _data: Optional[List[Tuple[Feature, int]]]
 
-    def __init__(self, db_path: str, load_to_memory: bool = False, vectorize: bool = False):
+    def __init__(self, db_path: str, load_to_memory: bool = False):
         """
         Initializes the dataset using the database. If load_to_memory is True, it will store the entire dataset in
         memory when the object is initialized.
@@ -41,9 +37,7 @@ class LLMClassifierDataset(Sequence, Dataset):
             db_path: The location on disk of the database we are getting our data from.
             load_to_memory: If true, we will load the contents of the database into memory. This will only be beneficial
                             if our dataset is smaller than our RAM.
-            vectorize: If true, we will use self.vectorizer to turn the string feature into a vector of floats.
         """
-        self._vectorize = vectorize
         self._db = LLMClassifierDatabase(db_path)
         self._data = None
         if load_to_memory:
@@ -60,17 +54,12 @@ class LLMClassifierDataset(Sequence, Dataset):
         llm_answers = [(row.llm_answer, 1) for row in self._db]
         # Interleaving the answers.
         data = [x for pair in zip(human_answers, llm_answers) for x in pair]
-        # Vectorizing if needed.
-        if self._vectorize:
-            return [self._vectorizer(element[0]) for element in data]
-        else:
-            return data
+        return data
 
     def __getitem__(self, index: int) -> Tuple[Feature, int]:
         """
         Gets the item at the given index in this dataset. This item is a tuple of the feature and the label.
         - If self._data is not None, we load from self.data. Otherwise, we load from self._db.
-        - If self._vectorize is True, we apply self._vectorizer to the feature string.
         When we are loading from self._db, we pull from (index // 2) for even indexes, which will be human answers, and
         (index // 2) + 1 for odd indexes, which will be LLM answers.
         """
@@ -87,8 +76,6 @@ class LLMClassifierDataset(Sequence, Dataset):
             else:
                 feature = self._db[index // 2 + 1].llm_answer
                 label = 1
-        # Applying vectorization if needed
-        feature = self._vectorizer(feature) if self._vectorize else feature
         return feature, label
 
     def __len__(self) -> int:
@@ -108,15 +95,8 @@ class LLMClassifierDataset(Sequence, Dataset):
         Returns:
             This dataset as a list.
         """
-        human_answers = self._db.human_answers()
-        llm_answers = self._db.llm_answers()
-        features = [''] * (len(human_answers) + len(llm_answers))
-        features[::2] = human_answers
-        features[1::2] = llm_answers
-        labels = [-1] * len(features)
-        labels[::2] = 0
-        labels[1::2] = 1
-        return list(zip(features, labels))
+        data = self._load_dataset_to_memory()
+        return data
 
     def create_database(self, ms_marco_dataset: MSMarcoDataset, llm: InferenceLLM, short_prompts: bool = True,
                         batch_size: int = 1) -> None:
