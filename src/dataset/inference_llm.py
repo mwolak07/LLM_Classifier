@@ -1,7 +1,6 @@
 from transformers import PreTrainedModel, PreTrainedTokenizer, AutoModelForCausalLM, AutoTokenizer
 from torch import device, cuda, float16
 from typing import List, Tuple
-from numpy import ndarray
 from abc import ABC
 import numpy as np
 import json
@@ -187,7 +186,7 @@ class InferenceLLM(ABC):
         Returns:
             The answer given by the LLM, and the number of tries it took.
         """
-        answers, tries = self.answer_batch(np.array([question]), np.array(['']), max_answer_len)
+        answers, tries = self.answer_batch([question], [''], max_answer_len)
         return answers[0], tries
 
     def answers(self, questions: List[str], max_answer_len: int, batch_size: int = 1) -> Tuple[List[str], List[int]]:
@@ -212,7 +211,7 @@ class InferenceLLM(ABC):
         for i in range(len(question_batches)):
             t = time.time()
             question_batch = question_batches[i]
-            answer_batch = np.full((len(question_batch),), '')
+            answer_batch = [''] * len(question_batch)
             answer_batch, tries = self.answer_batch(question_batch, answer_batch, max_answer_len)
             for answer in answer_batch:
                 answers[answer_index] = answer
@@ -224,7 +223,7 @@ class InferenceLLM(ABC):
         return answers.tolist(), tries_list.tolist()
 
     @staticmethod
-    def get_batches(questions: List[str], batch_size: int) -> List[ndarray[str]]:
+    def get_batches(questions: List[str], batch_size: int) -> List[List[str]]:
         """
         Splits the questions into batches of size batch_size for batch inference, and converts to numpy arrays.
 
@@ -237,10 +236,10 @@ class InferenceLLM(ABC):
         """
         batch_indexes = np.arange(batch_size, len(questions), batch_size)
         batches = np.array_split(np.array(questions), batch_indexes)
-        return [np.array(batch) for batch in batches]
+        return [batch.tolist() for batch in batches]
 
-    def answer_batch(self, question_batch: ndarray[str], answer_batch: ndarray[str], max_answer_len: int,
-                     _current_try: int = 0, _max_try: int = 3) -> Tuple[ndarray[str], int]:
+    def answer_batch(self, question_batch: List[str], answer_batch: List[str], max_answer_len: int,
+                     _current_try: int = 0, _max_try: int = 3) -> Tuple[List[str], int]:
         """
         Generates an batch of answers based on a batch of questions. Guards against CUDA errors, and will try to get the
         answer again up to three times if it gets no response from the LLM
@@ -274,28 +273,29 @@ class InferenceLLM(ABC):
         print(f'Pre answer batch: {answer_batch}')
 
         # Getting the indices of the questions with no answers, and the questions with no answers.
-        empty_indices = np.where(answer_batch == '')
-        llm_questions = question_batch[empty_indices]
+        empty_indices = [i for i in range(len(answer_batch)) if answer_batch[i] == '']
+        llm_questions = [question_batch[i] for i in empty_indices]
 
         print(f'empty indices: {empty_indices}')
 
         # Checking the llm questions, and generating the answers for them. Ensures the answers go to the indices that
         # had the empty elements.
         self.check_question_lengths(llm_questions)
-        new_answer_batch = self.generate_batch(llm_questions, max_answer_len)
-        print(f'new answer batch: {new_answer_batch}')
-        answer_batch[empty_indices] = new_answer_batch
+        generated_answer_batch = self.generate_batch(llm_questions, max_answer_len)
+        # Setting the answer_batch at empty_indices to generated_answer_batch:
+        for i in range(len(generated_answer_batch)):
+            answer_batch[empty_indices[i]] = generated_answer_batch[i]
         print(f'new new answer batch: {answer_batch}')
 
         # Re-trying for empty answers if we got any.
-        empty_indices = np.where(answer_batch == '')
-        if len(empty_indices[0]) > 0:
+        empty_indices = [i for i in range(len(answer_batch)) if answer_batch[i] == '']
+        if len(empty_indices) > 0:
             return self.answer_batch(question_batch, answer_batch, max_answer_len, _current_try + 1)
         # Answer is good, return the output we got.
         else:
             return answer_batch, _current_try + 1
 
-    def check_question_lengths(self, questions: ndarray[str]) -> str:
+    def check_question_lengths(self, questions: List[str]) -> str:
         """
         Checks that the length of each of the questions is not more than the maximum of the tokenizer.
         Note: The output from np.where looks a little confusing, it is a tuple: Tuple[List[indices], dtype].
@@ -312,7 +312,7 @@ class InferenceLLM(ABC):
                                f'{len(questions[long_questions[0][0]])} > {self._tokenizer.model_max_length}, '
                                f'question: {questions[long_questions[0][0]]}')
 
-    def generate_batch(self, questions: ndarray[str], max_answer_len: int) -> ndarray[str]:
+    def generate_batch(self, questions: List[str], max_answer_len: int) -> List[str]:
         """
         Generates a batch of answers from a batch of questions using the LLM.
 
@@ -325,7 +325,6 @@ class InferenceLLM(ABC):
             cuda.CudaError: When some other error occurs in CUDA.
         """
         # Converting the questions to a list and tokenizing them.
-        questions = questions.tolist()
         encoded_inputs = self._tokenizer(questions, return_tensors="pt", return_attention_mask=True, padding=True)
         # Unpacking the input and moving tensors to the GPU if needed.
         input_ids = encoded_inputs.input_ids.to(device('cuda')) if self._use_gpu \
@@ -340,9 +339,9 @@ class InferenceLLM(ABC):
             attention_mask=attention_mask
         )
         # Getting text back from the tokenized output.
-        answers = np.array(self._tokenizer.batch_decode(encoded_output))
+        answers = self._tokenizer.batch_decode(encoded_output)
         print(f'raw answers: {answers}')
         # Post-processing the answers.
-        processed_answers = np.array([self.postprocess_answer(answer) for answer in answers])
+        processed_answers = [self.postprocess_answer(answer) for answer in answers]
         print(f'post processed answers: {processed_answers}')
         return processed_answers

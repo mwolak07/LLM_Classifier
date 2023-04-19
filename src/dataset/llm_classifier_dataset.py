@@ -49,12 +49,6 @@ class LLMClassifierDataset(Sequence, Dataset):
         if load_to_memory:
             self._data = self._load_dataset_to_memory()
 
-    def __del__(self):
-        """
-        Deletes the database when the dataset is deleted.
-        """
-        del self._db
-
     def _load_dataset_to_memory(self) -> List[Tuple[Feature, int]]:
         """
         Loads the dataset into memory by creating a list of GPTClassifierItem, which is the rows in the database
