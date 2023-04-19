@@ -61,11 +61,12 @@ print("made it")
 # where n is number of responses, X1 is number of sentences in response, X2 is word vector
 def runfasttext(data):
     fasttextout = []#will need to be an array :*(
-    for i in range(len(data)):
-        fasttextout.append(re.split('.?!', data[i]))#split across sentences
-        for j in range(len(fasttextout[i])):
-            print(fasttextout[i][j] + " sentence")
-            fasttextout[i][j] = gensimModel.get_sentence_vector(fasttextout[i][j])
+    for element in data:
+        words = data.split(' ')
+        vectors = []
+        for word in words:
+            vectors.append(gensimModel.wv[word])
+        fasttextout.append(vectors)
     return fasttextout
     
 #data should be [[[sent vect][sent vect]],[list of sent in response],[list of sent in response],response,response], 
