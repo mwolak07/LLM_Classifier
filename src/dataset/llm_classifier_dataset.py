@@ -49,6 +49,12 @@ class LLMClassifierDataset(Sequence, Dataset):
         if load_to_memory:
             self._data = self._load_dataset_to_memory()
 
+    def __del__(self):
+        """
+        Deletes the database when the dataset is deleted.
+        """
+        del self._db
+
     def _load_dataset_to_memory(self) -> List[Tuple[Feature, int]]:
         """
         Loads the dataset into memory by creating a list of GPTClassifierItem, which is the rows in the database
@@ -132,7 +138,8 @@ class LLMClassifierDataset(Sequence, Dataset):
         # he database would not be populated.
         print('Inserting LLM answers into the database...')
         max_answer_len = max([len(answer) for answer in self._db.human_answers()])
-        self.llm_answers_to_db(llm, max_answer_len, self._db.prompts(), batch_size)
+        self.llm_answers_to_db(llm=llm, max_answer_len=max_answer_len, prompts=self._db.prompts(),
+                               batch_size=batch_size, start_index=0)
         print('Done')
 
     @staticmethod
@@ -178,9 +185,8 @@ class LLMClassifierDataset(Sequence, Dataset):
             batch_size: The size of the batches to run the inference with.
             start_index: The index to start inserting answers at (default is 0, but can be higher if we are resuming).
         """
-        prompts = np.array(prompts)
+        answer_index = start_index
         prompt_batches = llm.get_batches(prompts, batch_size)
-        answer_index = 0
         for i in range(len(prompt_batches)):
             t = time.time()
             prompt_batch = prompt_batches[i]

@@ -57,7 +57,7 @@ class InferenceLLM(ABC):
         """
         Makes extra adjustments to the initialization of the model as needed for each model.
         """
-        if model_name in ['bigscience/bloom-1b1']:
+        if model_name in ['bigscience/bloom-1b1', 'facebook/opt-1.3b', 'EleutherAI/gpt-neo-1.3B']:
             self._tokenizer.pad_token = self._tokenizer.eos_token
         if model_name in ['EleutherAI/gpt-neo-1.3B']:
             self._tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side='left')
@@ -202,11 +202,10 @@ class InferenceLLM(ABC):
         Returns:
             The answers given by the LLM, and the number of tries each answer took.
         """
-        print('\nAnswers:')
+        print('Answers:')
         print(f'Num questions: {len(questions)}')
         answers = np.full((len(questions),), '')
         tries_list = np.full((len(questions),), -1)
-        questions = np.array(questions)
         question_batches = self.get_batches(questions, batch_size)
         print(f'Batch lengths: {[len(batch) for batch in question_batches]}')
         answer_index = 0
@@ -225,7 +224,7 @@ class InferenceLLM(ABC):
         return answers.tolist(), tries_list.tolist()
 
     @staticmethod
-    def get_batches(questions: ndarray[str], batch_size: int) -> ndarray[ndarray[str]]:
+    def get_batches(questions: List[str], batch_size: int) -> List[ndarray[str]]:
         """
         Splits the questions into batches of size batch_size for batch inference, and converts to numpy arrays.
 
@@ -236,8 +235,9 @@ class InferenceLLM(ABC):
         Returns:
             A list of lists of questions, representing batches for the model, as a numpy array.
         """
-        batches = np.array_split(questions, np.arange(batch_size, len(questions), batch_size))
-        return np.array([np.array(batch) for batch in batches])
+        batch_indexes = np.arange(batch_size, len(questions), batch_size)
+        batches = np.array_split(np.array(questions), batch_indexes)
+        return [np.array(batch) for batch in batches]
 
     def answer_batch(self, question_batch: ndarray[str], answer_batch: ndarray[str], max_answer_len: int,
                      _current_try: int = 0, _max_try: int = 3) -> Tuple[ndarray[str], int]:

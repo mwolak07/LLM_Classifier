@@ -114,7 +114,7 @@ class TestInferenceLLMUtils(unittest.TestCase):
         """
         Ensures the postprocess_answer method works correctly to remove incomplete sentences and repeats.
         """
-        context = 'The answer, in complete sentences, to the question: "question", is:'
+        context = 'The short answer, in complete sentences, to the question: "question", is:'
         # Testing None.
         sentence = None
         answer = ''
@@ -318,7 +318,7 @@ class TestInferenceLLM(ABC):
             with self.subTest(batch_size=batch_size):
                 # Ensuring we have enough prompts to fill our batch_size.
                 print(f'\nBatch size: {batch_size}')
-                prompts = self.max_long_prompt * batch_size * 2
+                prompts = [self.max_long_prompt] * (batch_size * 2)
                 # Computing the answers.
                 answers, tries_list = self.llm.answers(prompts, max_answer_len=250, batch_size=batch_size)
                 self.assertTrue(len(answers) == len(prompts))
@@ -335,7 +335,7 @@ class TestInferenceLLM(ABC):
             with self.subTest(batch_size=batch_size):
                 # Ensuring we have enough prompts to fill our batch_size.
                 print(f'\nBatch size: {batch_size}')
-                prompts = self.max_short_prompt * batch_size * 2
+                prompts = [self.max_short_prompt] * (batch_size * 2)
                 # Computing the answers.
                 answers, tries_list = self.llm.answers(prompts, max_answer_len=250, batch_size=batch_size)
                 self.assertTrue(len(answers) == len(prompts))

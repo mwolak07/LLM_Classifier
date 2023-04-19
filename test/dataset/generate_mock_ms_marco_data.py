@@ -101,7 +101,7 @@ def get_mock_ms_marco_dataset(no_answer_elements: List[MSMarcoItem],
         i += 1
 
     # Inserting the second half of the random elements with wellFormedAnswers.
-    for element in random_elements[:split_point]:
+    for element in random_elements[split_point:]:
         output = _add_element_to_output(i, element, output, True)
         i += 1
 
