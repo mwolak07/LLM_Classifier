@@ -131,8 +131,6 @@ class LLMClassifierDataset(Sequence, Dataset):
         print('Inserting LLM answers into the database...')
         answer_lengths = [len(answer) for answer in self._db.human_answers()]
         max_answer_len = int(round(statistics.mean(answer_lengths) + (statistics.stdev(answer_lengths) * 3)))
-        print(f'Previous max answer len: {max(answer_lengths)}')
-        print(f'New max answer len: {max_answer_len}')
         self.llm_answers_to_db(llm=llm, max_answer_len=max_answer_len, prompts=self._db.prompts(),
                                batch_size=batch_size, start_answer_index=0, start_batch_index=0)
 
@@ -195,8 +193,6 @@ class LLMClassifierDataset(Sequence, Dataset):
                 print(f'Done in {time.time() - t}s {(i + 1) / len(prompt_batches) * 100}%)')
             except (cuda.CudaError, cuda.OutOfMemoryError, RuntimeError, ValueError) as e:
                 print(f'WARNING! Could not generate answers for batch {i}: {str(e)}')
-            print(f'Adding LLM answers to DB...')
             for answer in answer_batch:
-                print(answer)
                 self._db.add_llm_answer(answer, answer_index)
                 answer_index += 1

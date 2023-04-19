@@ -55,7 +55,7 @@ def generate_datasets():
     """
     print(f'Loading model into memory...')
     llm = InferenceLLM('bigscience/bloom-1b1')
-    generate_datasets_for_llm(llm=llm, db_folder='../../data/bloom_1_1B', batch_size=4)
+    generate_datasets_for_llm(llm=llm, db_folder='../../data/bloom_1_1B', batch_size=8)
 
 
 if __name__ == '__main__':
