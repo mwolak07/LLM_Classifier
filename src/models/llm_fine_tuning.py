@@ -5,8 +5,8 @@ from keras.callbacks import TensorBoard
 from keras.utils import to_categorical
 from keras.optimizers import Adam
 from keras.models import Model
+from typing import Tuple, Any
 from numpy import ndarray
-from typing import Tuple
 import numpy as np
 from src.dataset import LLMClassifierDataset
 from src.util import cd_to_executing_file
@@ -18,7 +18,7 @@ def load_data(model_name: str) -> Tuple[ndarray[float], ndarray[float], ndarray[
     data.
 
     Args:
-        model_name: The name of the model to use for the pre-trained tokenizer.
+        model_name: The huggingface name of the model for the pre-trained tokenizer.
 
     Returns:
         x_train, x_test, y_train, y_test.
@@ -75,8 +75,35 @@ def train(x: ndarray[float], y: ndarray[int], model_name: str, epochs: int) -> N
     model.save_weights(filepath=f'../model_weights/{model_file}', format='h5')
 
 
-deftest
+def test(x: ndarray[float], y: ndarray[int], model_name: str) -> Any:
+    """
+    Tests the model with the vectorized text features and classification labels.
 
-# Testing the model on the test data.
-model.load_weights(filepath='opt-125m-fine-tuning.h5')
-results = model.evaluate(x_test, y_test, batch_size=32)
+    Args:
+        x: The testing features for the model to predict on.
+        y: The testing labels to compare with.
+        model_name: The huggingface name of the model we are training.
+    """
+    model_file = model_name.split('/')[-1]
+    model = load_model(model_name)
+    model.load_weights(f'../model_weights/{model_file}')
+    return model.evaluate(x, y, batch_size=32)
+
+
+def fine_tune_model(model_name: str) -> None:
+    """
+    Fine-tunes an LLM model, including training and testing.
+
+    Args:
+        model_name: The huggingface name of the model we are training.
+    """
+    x_train, x_test, y_train, y_test = load_data(model_name)
+    train(x_train, y_train, model_name=model_name, epochs=25)
+    print(test(x_test, y_test, model_name=model_name))
+
+
+def main() -> None:
+
+
+
+if __name__ == '__main__':
