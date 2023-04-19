@@ -201,12 +201,9 @@ class InferenceLLM(ABC):
         Returns:
             The answers given by the LLM, and the number of tries each answer took.
         """
-        print('Answers:')
-        print(f'Num questions: {len(questions)}')
         answers = np.full((len(questions),), '')
         tries_list = np.full((len(questions),), -1)
         question_batches = self.get_batches(questions, batch_size)
-        print(f'Batch lengths: {[len(batch) for batch in question_batches]}')
         answer_index = 0
         for i in range(len(question_batches)):
             t = time.time()
@@ -219,7 +216,6 @@ class InferenceLLM(ABC):
                 answer_index += 1
             print(f'Generated batch {i + 1}/{len(question_batches)} in {time.time() - t}s '
                   f'{(i + 1) / len(question_batches) * 100}%)')
-        print(f'Num answers: {len(answers)}')
         return answers.tolist(), tries_list.tolist()
 
     @staticmethod
@@ -270,13 +266,9 @@ class InferenceLLM(ABC):
             raise ValueError(f'Answer and question batch dimensions do not match!: '
                              f'{len(answer_batch)} != {len(question_batch)}')
 
-        print(f'Pre answer batch: {answer_batch}')
-
         # Getting the indices of the questions with no answers, and the questions with no answers.
         empty_indices = [i for i in range(len(answer_batch)) if answer_batch[i] == '']
         llm_questions = [question_batch[i] for i in empty_indices]
-
-        print(f'empty indices: {empty_indices}')
 
         # Checking the llm questions, and generating the answers for them. Ensures the answers go to the indices that
         # had the empty elements.
@@ -285,7 +277,6 @@ class InferenceLLM(ABC):
         # Setting the answer_batch at empty_indices to generated_answer_batch:
         for i in range(len(generated_answer_batch)):
             answer_batch[empty_indices[i]] = generated_answer_batch[i]
-        print(f'new new answer batch: {answer_batch}')
 
         # Re-trying for empty answers if we got any.
         empty_indices = [i for i in range(len(answer_batch)) if answer_batch[i] == '']
@@ -340,8 +331,6 @@ class InferenceLLM(ABC):
         )
         # Getting text back from the tokenized output.
         answers = self._tokenizer.batch_decode(encoded_output)
-        print(f'raw answers: {answers}')
         # Post-processing the answers.
         processed_answers = [self.postprocess_answer(answer) for answer in answers]
-        print(f'post processed answers: {processed_answers}')
         return processed_answers

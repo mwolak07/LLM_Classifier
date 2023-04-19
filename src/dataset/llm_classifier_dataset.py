@@ -3,7 +3,6 @@ from collections.abc import Sequence
 from torch.utils.data import Dataset
 from numpy import ndarray
 from torch import cuda
-import numpy as np
 import statistics
 import time
 from src.dataset import LLMClassifierDatabase, InferenceLLM, MSMarcoDataset
@@ -131,7 +130,7 @@ class LLMClassifierDataset(Sequence, Dataset):
         # he database would not be populated.
         print('Inserting LLM answers into the database...')
         answer_lengths = [len(answer) for answer in self._db.human_answers()]
-        max_answer_len = statistics.mean(answer_lengths) + (statistics.stdev(answer_lengths) * 3)
+        max_answer_len = int(round(statistics.mean(answer_lengths) + (statistics.stdev(answer_lengths) * 3)))
         print(f'Previous max answer len: {max(answer_lengths)}')
         print(f'New max answer len: {max_answer_len}')
         self.llm_answers_to_db(llm=llm, max_answer_len=max_answer_len, prompts=self._db.prompts(),
@@ -189,11 +188,10 @@ class LLMClassifierDataset(Sequence, Dataset):
         for i in range(start_batch_index, len(prompt_batches)):
             t = time.time()
             prompt_batch = prompt_batches[i]
-            answer_batch = np.full((len(prompt_batch),), '')
+            answer_batch = [''] * len(prompt_batch)
             print(f'Generating batch {i + 1}/{len(prompt_batches)} of size {len(prompt_batch)}')
             try:
                 answer_batch, tries = llm.answer_batch(prompt_batch, answer_batch, max_answer_len)
-                print(f'Answer batch: {answer_batch}')
                 print(f'Done in {time.time() - t}s {(i + 1) / len(prompt_batches) * 100}%)')
             except (cuda.CudaError, cuda.OutOfMemoryError, RuntimeError, ValueError) as e:
                 print(f'WARNING! Could not generate answers for batch {i}: {str(e)}')
