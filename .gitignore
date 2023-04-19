@@ -136,7 +136,8 @@ data/bloom_1_1B/test_short_prompts.sqlite3
 data/bloom_1_1B/train_short_prompts.sqlite3
 data/opt_1_3B/test_short_prompts.sqlite3
 data/opt_1_3B/train_short_prompts.sqlite3
-data/fasttext/extra
+data/fasttext/wiki.en.bin
+data/fasttext/wiki.en.vec
 data/MS_MARCO/dev_v2.1.json
 data/MS_MARCO/eval_v2.1_public.json
 data/MS_MARCO/train_v2.1.json
