@@ -8,7 +8,6 @@ print("preparing to create dataset")
 imdb = tf.keras.datasets.imdb #test dataset to make sure the RNN does something :D
 (x_train, y_train), (x_test, y_test) = imdb.load_data(num_words = 10000)
 
-
 #padding data
 max_seq_length = max(len(seq) for seq in x_train + x_test)
 x_train = keras.preprocessing.sequence.pad_sequences(x_train, maxlen=max_seq_length)
