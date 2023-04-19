@@ -19,10 +19,8 @@ def generate_dataset(ms_marco_path: str, short_prompts: bool, llm: InferenceLLM,
     # Setting up the MSMarcoDataset and LLMClassifierDataset objects.
     print('Creating the database...')
     dataset = LLMClassifierDataset(db_path=db_path)
-    print('Done')
     print('Reading the MS MARCO dataset...')
     ms_marco = MSMarcoDataset(ms_marco_path)
-    print('Done')
     # Creating the database.
     dataset.create_database(ms_marco_dataset=ms_marco, llm=llm, short_prompts=short_prompts, batch_size=batch_size)
 
@@ -46,11 +44,9 @@ def generate_datasets_for_llm(llm: InferenceLLM, db_folder: str, batch_size: int
     print('Generating testing set...')
     generate_dataset(ms_marco_test, short_prompts=True, llm=llm, batch_size=batch_size,
                      db_path=os.path.join(db_folder, 'test_short_prompts.sqlite3'))
-    print('Done')
     print('Generating training set...')
     generate_dataset(ms_marco_train, short_prompts=True, llm=llm, batch_size=batch_size,
                      db_path=os.path.join(db_folder, 'train_short_prompts.sqlite3'))
-    print('Done')
     
 
 def generate_datasets():
@@ -59,8 +55,7 @@ def generate_datasets():
     """
     print(f'Loading model into memory...')
     llm = InferenceLLM('bigscience/bloom-1b1')
-    print(f'Done')
-    generate_datasets_for_llm(llm=llm, db_folder='../../data/bloom_1_1B', batch_size=16)
+    generate_datasets_for_llm(llm=llm, db_folder='../../data/bloom_1_1B', batch_size=8)
 
 
 if __name__ == '__main__':
