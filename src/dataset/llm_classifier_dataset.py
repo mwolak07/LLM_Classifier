@@ -4,7 +4,6 @@ from torch.utils.data import Dataset
 from numpy import ndarray
 from torch import cuda
 import numpy as np
-import math
 import time
 from src.dataset import LLMClassifierDatabase, InferenceLLM, MSMarcoDataset
 
@@ -107,6 +106,23 @@ class LLMClassifierDataset(Sequence, Dataset):
         """
         return len(self._db) * 2
 
+    def tolist(self) -> List[Tuple[Feature, int]]:
+        """
+        Turns this dataset into a list of Tuples of feature: label.
+
+        Returns:
+            This dataset as a list.
+        """
+        human_answers = self._db.human_answers()
+        llm_answers = self._db.llm_answers()
+        features = [''] * (len(human_answers) + len(llm_answers))
+        features[::2] = human_answers
+        features[1::2] = llm_answers
+        labels = [-1] * len(features)
+        labels[::2] = 0
+        labels[1::2] = 1
+        return list(zip(features, labels))
+
     def create_database(self, ms_marco_dataset: MSMarcoDataset, llm: InferenceLLM, short_prompts: bool = True,
                         batch_size: int = 1) -> None:
         """
@@ -190,20 +206,18 @@ class LLMClassifierDataset(Sequence, Dataset):
         """
         answer_index = start_index
         prompt_batches = llm.get_batches(prompts, batch_size)
-        print(f'Generating answers in {len(prompt_batches)} batches...')
+        print(f'Generating answers in {len(prompt_batches)} batches of size {batch_size}...')
         for i in range(len(prompt_batches)):
             t = time.time()
             prompt_batch = prompt_batches[i]
             answer_batch = np.full((len(prompt_batch),), '')
+            print(f'Generating batch {i + 1}/{len(prompt_batches)} of size {len(prompt_batch)}')
             try:
                 answer_batch, tries = llm.answer_batch(prompt_batch, answer_batch, max_answer_len)
-            except cuda.CudaError or cuda.OutOfMemoryError or RuntimeError or ValueError as e:
+                print(f'Done in {time.time() - t}s {(i + 1) / len(prompt_batches) * 100}%)')
+            except (cuda.CudaError, cuda.OutOfMemoryError, RuntimeError, ValueError) as e:
                 print(f'WARNING! Could not generate answers for batch {i}: {str(e)}')
             print(f'Adding LLM answers to DB...')
             for answer in answer_batch:
                 self._db.add_llm_answer(answer, answer_index)
                 answer_index += 1
-            print(f'Done')
-            print(f'Generated batch {i + 1}/{len(prompt_batches)} in {time.time() - t}s '
-                  f'{(i + 1) / len(prompt_batches) * 100}%)')
-        print('Done')
