@@ -63,6 +63,7 @@ def download_huggingface_models() -> None:
     - gpt-neo-125m | 125M params | 0.5 GB
     - gpt2         | 124M params | 0.5 GB
     - opt-125m     | 125M params | 0.3 GB
+    - distilbert   | ???? params | ??? GB
     """
     download_huggingface_model('EleutherAI/gpt-j-6b')
     download_huggingface_model('EleutherAI/gpt-neo-2.7B')
@@ -79,6 +80,7 @@ def download_huggingface_models() -> None:
     download_huggingface_model('EleutherAI/gpt-neo-125m')
     download_huggingface_model('gpt2')
     download_huggingface_model('facebook/opt-125m')
+    download_huggingface_model('distilbert-base-cased')
 
 
 if __name__ == '__main__':
