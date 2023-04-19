@@ -142,7 +142,7 @@ class MSMarcoDataset(Sequence):
             A list of queries from the loaded data.
         """
         n = len(data['query'].keys())
-        queries = list(np.empty((n,)))
+        queries = list(np.full((n,), ''))
         for key in data['query'].keys():
             i = int(key)
             queries[i] = data['query'][key]

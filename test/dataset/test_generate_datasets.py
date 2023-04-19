@@ -10,11 +10,11 @@ class TestGenerateDatasets(unittest.TestCase):
     Attributes:
         test_db_path: (class attribute) The path to the database for the test set.
         train_db_path: (class attribute) The path to the database for the train set.
-        mock_ms_marco_data_path: (class attribute) The path to the mock ms marco set.
+        ms_marco_file: (class attribute) The path to the mock ms marco set.
     """
     test_db_path: str = 'test_short_prompts.sqlite3'
     train_db_path: str = 'train_short_prompts.sqlite3'
-    mock_ms_marco_data_path: str = 'mock_ms_marco_data.json'
+    ms_marco_file: str = 'mock_data_ms_marco.json'
 
     def tearDown(self):
         """
@@ -30,7 +30,7 @@ class TestGenerateDatasets(unittest.TestCase):
         Test that generating the datasets for bloom_1_1B works correctly.
         """
         llm = InferenceLLM('bigscience/bloom-1b1')
-        generate_datasets_for_llm(llm, './', self.mock_ms_marco_data_path, self.mock_ms_marco_data_path)
+        generate_datasets_for_llm(llm, './', self.ms_marco_file, self.ms_marco_file)
         test_dataset = LLMClassifierDataset(self.test_db_path)
         self.assertEqual(20, len(test_dataset))
         train_dataset = LLMClassifierDataset(self.train_db_path)
@@ -41,7 +41,7 @@ class TestGenerateDatasets(unittest.TestCase):
         Test that generating the datasets for bloom_1_1B works correctly.
         """
         llm = InferenceLLM('opt-1.3b')
-        generate_datasets_for_llm(llm, './', self.mock_ms_marco_data_path, self.mock_ms_marco_data_path)
+        generate_datasets_for_llm(llm, './', self.ms_marco_file, self.ms_marco_file)
         test_dataset = LLMClassifierDataset(self.test_db_path)
         self.assertEqual(20, len(test_dataset))
         train_dataset = LLMClassifierDataset(self.train_db_path)

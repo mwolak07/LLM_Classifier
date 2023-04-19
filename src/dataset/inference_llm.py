@@ -1,10 +1,12 @@
-import torch.cuda
 from transformers import PreTrainedModel, PreTrainedTokenizer, AutoModelForCausalLM, AutoTokenizer
 from torch import device, cuda, float16
-from typing import List, Dict
+from typing import List, Tuple
+from numpy import ndarray
 from abc import ABC
+import numpy as np
 import json
 import time
+import math
 from src.util import cd_to_executing_file, get_ram_gb, get_vram_gb
 
 
@@ -51,7 +53,15 @@ class InferenceLLM(ABC):
         self._model = self._model.to(device('cuda')) if self._use_gpu else self._model
         # Instantiating the tokenizer associated with the model.
         self._tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self._tokenizer.pad_token = self._tokenizer.eos_token
+
+    def init_extra_steps(self, model_name: str) -> None:
+        """
+        Makes extra adjustments to the initialization of the model as needed for each model.
+        """
+        if model_name in ['bigscience/bloom-1b1']:
+            self._tokenizer.pad_token = self._tokenizer.eos_token
+        if model_name in ['EleutherAI/gpt-neo-1.3B']:
+            self._tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side='left')
 
     @staticmethod
     def check_ram(model_ram_file: str, model_name: str, use_gpu: bool) -> None:
@@ -165,7 +175,7 @@ class InferenceLLM(ABC):
             text_stack = new_text_stack
         return text_stack
 
-    def answer(self, question: str, max_answer_len: int) -> str:
+    def answer(self, question: str, max_answer_len: int) -> Tuple[str, int]:
         """
         Generates an answer based on the given question. Guards against CUDA errors, and will try to get the answer
         again up to three times if it gets no response from the LLM.
@@ -175,11 +185,12 @@ class InferenceLLM(ABC):
             max_answer_len: The maximum length of an answer.
 
         Returns:
-            The answer given by the LLM.
+            The answer given by the LLM, and the number of tries it took.
         """
-        return self.answer_batch({question: ''}, max_answer_len)[question]
+        answers, tries = self.answer_batch(np.array([question]), np.array(['']), max_answer_len)
+        return answers[0], tries
 
-    def answers(self, questions: List[str], max_answer_len: int, batch_size: int = 1) -> List[str]:
+    def answers(self, questions: List[str], max_answer_len: int, batch_size: int = 1) -> Tuple[List[str], List[int]]:
         """
         Generates a list of answers based on the given list of questions.
 
@@ -189,69 +200,124 @@ class InferenceLLM(ABC):
             batch_size: The size of the batches of questions to ask the LLM.
 
         Returns:
-            The answers given by the LLM.
+            The answers given by the LLM, and the number of tries each answer took.
         """
-        print('\n Answers:')
-        answers = []
-        question_batches = self.get_batches(questions, batch_size)
+        print('\nAnswers:')
+        print(f'Num questions: {len(questions)}')
+        answers = np.full((len(questions),), '')
+        tries_list = np.full((len(questions),), -1)
+        num_batches = math.ceil(len(questions) / batch_size)
+        question_batches = np.array_split(np.array(questions), num_batches)
+        print(f'Batch lengths: {[len(batch) for batch in question_batches]}')
+        answer_index = 0
         for i in range(len(question_batches)):
             t = time.time()
-            question_batch = {question: '' for question in question_batches[i]}
-            question_batch = self.answer_batch(question_batch, max_answer_len)
-            answers += [question_batch[question] for question in question_batch.keys()]
-            print(f'Generated batch {i + 1}/{len(question_batches)} in {time.time() - t}s')
-        return answers
+            question_batch = question_batches[i]
+            answer_batch = np.full((len(question_batch),), '')
+            answer_batch, tries = self.answer_batch(question_batch, answer_batch, max_answer_len)
+            for answer in answer_batch:
+                answers[answer_index] = answer
+                tries_list[answer_index] = tries
+                answer_index += 1
+            print(f'Generated batch {i + 1}/{num_batches} in {time.time() - t}s {(i + 1) / num_batches * 100}%)')
+        print(f'Answer lengths: {[len(answer) for answer in answers]}')
+        return answers.tolist(), tries_list.tolist()
 
     @staticmethod
-    def get_batches(questions: List[str], batch_size: int) -> List[List[str]]:
+    def get_batches(questions: List[str], batch_size: int) -> ndarray[ndarray[str]]:
         """
-        Splits the questions into batches of size batch_size for batch inference.
+        Splits the questions into batches of size batch_size for batch inference, and converts to numpy arrays.
 
         Args:
             questions: The list of questions to split into batches.
             batch_size: The size of each batch of questions we want to be generating.
 
         Returns:
-            A list of lists of questions, representing batches for the model.
+            A list of lists of questions, representing batches for the model, as a numpy array.
         """
-        return [questions[i: i + batch_size] for i in range(0, len(questions), batch_size)]
+        return np.array_split(np.array(questions), batch_size)
 
-    def answer_batch(self, question_batch: Dict[str, str], max_answer_len: int, _current_try: int = 0,
-                     _max_try: int = 3) -> Dict[str, str]:
+    def answer_batch(self, question_batch: ndarray[str], answer_batch: ndarray[str], max_answer_len: int,
+                     _current_try: int = 0, _max_try: int = 3) -> Tuple[ndarray[str], int]:
         """
         Generates an batch of answers based on a batch of questions. Guards against CUDA errors, and will try to get the
-        answer again up to three times if it gets no response from the LLM.
+        answer again up to three times if it gets no response from the LLM
 
         Args:
-            question_batch: The batch of questions the LLM should respond to, which is a mapping of questions to
-                            answers. This is meant to be empty when first supplied.
+            question_batch: The batch of questions the LLM should respond to.
+            answer_batch: The batch of answers this function will fill in. Should start out being filled in with empty
+                          strings: ''
             max_answer_len: The maximum length of an answer.
             _current_try: Recursive parameter used to track which try we are currently executing.
             _max_try: Recursive parameter used to specify how many times we should re-try for an answer.
 
         Returns:
-            The batch of answers given by the LLM.
+            The answer batch given by the LLM, and the number of tries it took.
 
         Raises:
-            torch.cuda.OutOfMemoryError: When the batch size or data is too large, and does not fit on the GPU.
-            torch.cuda.CudaError: When some other error occurs in CUDA.
+            cuda.OutOfMemoryError: When the batch size or data is too large, and does not fit on the GPU.
+            cuda.CudaError: When some other error occurs in CUDA.
             RuntimeError: the length of one of the input sequences was longer than the maximum for the model.
+            ValueError: the answer_batch and question_batch are not the same dimensions.
         """
         # We ran out of tries. Return the answers we have.
         if _current_try == _max_try:
-            return question_batch
+            return answer_batch, _current_try + 1
 
-        # Storing the question_batch keys.
-        question_batch_keys = list(question_batch.keys())
+        # Checking dimensions
+        if len(answer_batch) != len(question_batch):
+            raise ValueError(f'Answer and question batch dimensions do not match!: '
+                             f'{len(answer_batch)} != {len(question_batch)}')
 
-        # Encoding the input.
-        llm_questions = [question for question in question_batch_keys if question_batch[question] == '']
-        for question in llm_questions:
-            if len(question) > self._tokenizer.model_max_length:
-                raise RuntimeError(f'Input sequence is longer than maximum for the model, '
-                                   f'{len(question)} > {self._tokenizer.model_max_length}, question: {question}')
-        encoded_inputs = self._tokenizer(llm_questions, return_tensors="pt", return_attention_mask=True,
-                                         padding=True)
+        # Getting the indices of the questions with no answers, and the questions with no answers.
+        empty_indices = np.where(answer_batch == '')
+        llm_questions = question_batch[empty_indices]
+
+        # Checking the llm questions, and generating the answers for them. Ensures the answers go to the indices that
+        # had the empty elements.
+        self.check_question_lengths(llm_questions)
+        answer_batch[empty_indices] = self.generate_batch(llm_questions, max_answer_len)
+
+        # Re-trying for empty answers if we got any.
+        empty_indices = np.where(answer_batch == '')
+        if len(empty_indices[0]) > 0:
+            return self.answer_batch(question_batch, answer_batch, max_answer_len, _current_try + 1)
+        # Answer is good, return the output we got.
+        else:
+            return answer_batch, _current_try + 1
+
+    def check_question_lengths(self, questions: ndarray[str]) -> str:
+        """
+        Checks that the length of each of the questions is not more than the maximum of the tokenizer.
+        Note: The output from np.where looks a little confusing, it is a tuple: Tuple[List[indices], dtype].
+
+        Args:
+            questions: The batch of questions the LLM should respond to.
+
+        Raises:
+            RuntimeError: the length of one of the input sequences was longer than the maximum for the model.
+        """
+        long_questions = np.where(len(questions) > self._tokenizer.model_max_length)
+        if len(long_questions[0]) > 0:
+            raise RuntimeError(f'Input sequence is longer than maximum for the model, '
+                               f'{len(questions[long_questions[0][0]])} > {self._tokenizer.model_max_length}, '
+                               f'question: {questions[long_questions[0][0]]}')
+
+    def generate_batch(self, questions: ndarray[str], max_answer_len: int) -> ndarray[str]:
+        """
+        Generates a batch of answers from a batch of questions using the LLM.
+
+        Args:
+            questions: The batch of questions the LLM should respond to.
+            max_answer_len: The maximum length of an answer.
+
+        Raises:
+            cuda.OutOfMemoryError: When the batch size or data is too large, and does not fit on the GPU.
+            cuda.CudaError: When some other error occurs in CUDA.
+        """
+        # Converting the questions to a list and tokenizing them.
+        questions = questions.tolist()
+        encoded_inputs = self._tokenizer(questions, return_tensors="pt", return_attention_mask=True, padding=True)
         # Unpacking the input and moving tensors to the GPU if needed.
         input_ids = encoded_inputs.input_ids.to(device('cuda')) if self._use_gpu \
             else encoded_inputs.input_ids
@@ -265,19 +331,7 @@ class InferenceLLM(ABC):
             attention_mask=attention_mask
         )
         # Getting text back from the tokenized output.
-        answers = self._tokenizer.batch_decode(encoded_output)
+        answers = np.array(self._tokenizer.batch_decode(encoded_output))
         # Post-processing the answers.
-        processed_answers = [self.postprocess_answer(answer) for answer in answers]
-
-        # Inserting the processed answers into the answer_map, or empty_output map if the answer was empty.
-        question_batch = {question_batch_keys[i]: processed_answers[i] for i in range(len(question_batch_keys))}
-        print('\nvalues:')
-        for value in question_batch.values():
-            print(value)
-        print(question_batch.values())
-        # Re-trying for empty answers if we got any.
-        if '' in question_batch.values():
-            return self.answer_batch(question_batch, max_answer_len, _current_try + 1)
-        # Answer i good, return the output we got.
-        else:
-            return question_batch
+        postprocess_fn = np.vectorize(self.postprocess_answer)
+        return postprocess_fn(answers)

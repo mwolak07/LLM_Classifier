@@ -1,9 +1,10 @@
 from typing import List, Optional, Tuple, Union
 from collections.abc import Sequence
-
-import torch.cuda
 from torch.utils.data import Dataset
 from numpy import ndarray
+from torch import cuda
+import numpy as np
+import math
 import time
 from src.dataset import LLMClassifierDatabase, InferenceLLM, MSMarcoDataset
 
@@ -175,18 +176,17 @@ class LLMClassifierDataset(Sequence, Dataset):
             start_index: The index to start inserting answers at (default is 0, but can be higher if we are resuming).
         """
         answer_index = start_index
-        prompt_batches = llm.get_batches(prompts, batch_size)
+        num_batches = math.ceil(len(prompts) / batch_size)
+        prompt_batches = np.array_split(np.array(prompts), num_batches)
         for i in range(len(prompt_batches)):
             t = time.time()
-            prompt_batch = {question: '' for question in prompt_batches[i]}
+            prompt_batch = prompt_batches[i]
+            answer_batch = np.full((len(prompt_batch),), '')
             try:
-                prompt_batch = llm.answer_batch(prompt_batch, max_answer_len)
-            except torch.cuda.OutOfMemoryError or torch.cuda.CudaError or RuntimeError as e:
-                print(f'WARNING! Unable to generate answers for the question batch! Reason: {str(e)}, '
-                      f'Questions: {prompt_batch.keys()}')
-            answers = [prompt_batch[question] for question in prompt_batch.keys()]
-            for answer in answers:
+                answer_batch, tries = llm.answer_batch(prompt_batch, answer_batch, max_answer_len)
+            except cuda.OutOfMemoryError or cuda.CudaError or RuntimeError as e:
+                print(f'WARNING: Unable to generate answer for batch {i}: {str(e)}')
+            for answer in answer_batch:
                 self._db.add_llm_answer(answer, answer_index)
                 answer_index += 1
-            print(f'Generated batch {i + 1}/{len(prompt_batches)} in {time.time() - t}s '
-                  f'({i + 1 / (len(prompt_batches)) * 100}%)')
+            print(f'Generated batch {i + 1}/{num_batches} in {time.time() - t}s {(i + 1) / num_batches * 100}%)')

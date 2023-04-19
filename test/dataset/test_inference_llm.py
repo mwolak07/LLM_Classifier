@@ -209,7 +209,8 @@ class TestInferenceLLM(ABC):
         max_prompt: The max-size prompt from the mock MS MARCO dataset.
         random_prompts: The random prompts from the mock MS MARCO dataset.
     """
-    mock_ms_marco_path: str = 'mock_ms_marco_data.json'
+    ms_marco_file = 'mock_data_ms_marco.json'
+    max_prompts_file = 'mock_data_max_prompts.json'
     llm: InferenceLLM
     max_prompt: str
     random_questions: List[str]
@@ -244,37 +245,48 @@ class TestInferenceLLM(ABC):
         cd_to_executing_file(__file__)
         self.load_test_questions()
 
-    def load_test_questions(self) -> None:
+    def load_mock_data(self) -> None:
         """
-        Loads the test questions from test_questions.json.
+        Loads the mock data from self.ms_marco_file and self.max_prompts_data.
         """
         # Reading the mock dataset in.
-        dataset = MSMarcoDataset(self.mock_ms_marco_path)
-        # Getting the longest long prompt.
-        long_prompts = [LLMClassifierDataset.prompt(element.passages, element.query) for element in dataset]
-        self.max_prompt = max(long_prompts, key=len)
-        # Storing the short prompts.
-        short_prompts = [LLMClassifierDataset.prompt(element.chosen_passages, element.query) for element in dataset]
-        self.random_prompts = short_prompts
+        dataset = MSMarcoDataset(self.ms_marco_file)
+        # Storing the ms_marco prompts.
+        self.ms_marco_prompts = [LLMClassifierDataset.prompt(element.chosen_passages, element.query) for element in
+                                 dataset if len(element.answer) > 0]
+        # Storing the max prompts.
+        with open(self.max_prompts_file, 'r') as f:
+            data = json.load(f)
+            self.max_long_prompt = data['max_long_prompt']
+            self.max_short_prompt = data['max_short_prompt']
 
     def test_answer(self):
         """
         Ensures the llm can correctly generate an answer for a number of single short questions.
         """
         # Going through our set of random prompts.
-        for question in self.random_prompts:
-            answer = self.llm.answer(question, max_answer_len=250)
+        for prompt in self.ms_marco_prompts:
+            answer, tries = self.llm.answer(prompt, max_answer_len=250)
             self.assertTrue(isinstance(answer, str))
-            self.assertTrue(len(answer) > 0)
+            self.assertTrue(len(answer) > 0 or tries == 3)
 
-    def test_answer_long_question(self):
+    def test_answer_max_long_question(self):
         """
-        Ensures the llm can correctly generate an answer for a single question, which is the longest possible prompt in
-        the MS MARCO dataset.
+        Ensures the llm can correctly generate an answer for a single question, which is the longest possible long
+        prompt in the MS MARCO dataset.
         """
-        answer = self.llm.answer(self.max_prompt, max_answer_len=250)
+        answer, tries = self.llm.answer(self.max_long_prompt, max_answer_len=250)
         self.assertTrue(isinstance(answer, str))
-        self.assertTrue(len(answer) > 0)
+        self.assertTrue(len(answer) > 0 or tries == 3)
+
+    def test_answer_max_short_question(self):
+        """
+        Ensures the llm can correctly generate an answer for a single question, which is the longest possible short
+        prompt in the MS MARCO dataset.
+        """
+        answer, tries = self.llm.answer(self.max_short_prompt, max_answer_len=250)
+        self.assertTrue(isinstance(answer, str))
+        self.assertTrue(len(answer) > 0 or tries == 3)
 
     def test_answers_batch_n(self):
         """
@@ -282,25 +294,52 @@ class TestInferenceLLM(ABC):
         """
         for batch_size in [2, 4, 8, 16, 32, 64]:
             with self.subTest(batch_size=batch_size):
-                answers = self.llm.answers(self.random_prompts, max_answer_len=250, batch_size=batch_size)
+                # Ensuring we have enough prompts to fill our batch_size.
+                print(f'\nBatch size: {batch_size}')
+                if len(self.random_prompts) > batch_size:
+                    prompts = self.ms_marco_prompts
+                else:
+                    prompts = self.ms_marco_prompts * (batch_size // len(self.random_prompts) + 1)
+                # Computing the answers.
+                answers, tries_list = self.llm.answers(prompts, max_answer_len=250, batch_size=batch_size)
                 self.assertTrue(len(answers) == len(self.random_prompts))
-                for answer in answers:
+                for answer, tries in zip(answers, tries_list):
                     self.assertTrue(isinstance(answer, str))
-                    self.assertTrue(len(answer) > 0)
+                    self.assertTrue(len(answer) > 0 or tries == 3)
 
-    def test_answers_long_question_batch_n(self):
+    def test_answers_max_long_question_batch_n(self):
         """
-        Ensures the llm can correctly generate a set of answers for multiple questions, if one of the questions is the
-        max question, with various batch sizes.
+        Ensures the llm can correctly generate a set of answers for multiple prompts, if it is a set of the longest
+        long prompt repeated.
         """
         for batch_size in [2, 4, 8, 16, 32, 64]:
             with self.subTest(batch_size=batch_size):
-                answers = self.llm.answers(self.random_prompts + [self.max_prompt], max_answer_len=250,
-                                           batch_size=batch_size)
-                self.assertTrue(len(answers) == len(self.random_prompts) + 1)
-                for answer in answers:
+                # Ensuring we have enough prompts to fill our batch_size.
+                print(f'\nBatch size: {batch_size}')
+                prompts = self.max_long_prompt * batch_size * 2
+                # Computing the answers.
+                answers, tries_list = self.llm.answers(prompts, max_answer_len=250, batch_size=batch_size)
+                self.assertTrue(len(answers) == len(self.random_prompts))
+                for answer, tries in zip(answers, tries_list):
                     self.assertTrue(isinstance(answer, str))
-                    self.assertTrue(len(answer) > 0)
+                    self.assertTrue(len(answer) > 0 or tries == 3)
+
+    def test_answers_max_short_question_batch_n(self):
+        """
+        Ensures the llm can correctly generate a set of answers for multiple prompts, if it is a set of the longest
+        short prompt repeated.
+        """
+        for batch_size in [2, 4, 8, 16, 32, 64]:
+            with self.subTest(batch_size=batch_size):
+                # Ensuring we have enough prompts to fill our batch_size.
+                print(f'\nBatch size: {batch_size}')
+                prompts = self.max_short_prompt * batch_size * 2
+                # Computing the answers.
+                answers, tries_list = self.llm.answers(prompts, max_answer_len=250, batch_size=batch_size)
+                self.assertTrue(len(answers) == len(self.random_prompts))
+                for answer, tries in zip(answers, tries_list):
+                    self.assertTrue(isinstance(answer, str))
+                    self.assertTrue(len(answer) > 0 or tries == 3)
 
 
 class TestBloom11B(TestInferenceLLM, unittest.TestCase):

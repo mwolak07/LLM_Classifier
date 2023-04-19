@@ -5,10 +5,11 @@ from src.util import cd_to_executing_file
 from src.dataset import MSMarcoDataset, MSMarcoItem, LLMClassifierDataset
 
 
-def get_dataset_elements(dataset: MSMarcoDataset) -> Dict[str, Any]:
+def get_mock_data_elements(dataset: MSMarcoDataset) -> Dict[str, Any]:
     """
     Gets target elements from the dataset. These are:
-    - The element with the longest prompt, and its length.
+    - The longest long prompt
+    - The longest short prompt
     - A random element with no answer.
     - A random element with multiple answers.
     - 3 random other elements.
@@ -22,12 +23,15 @@ def get_dataset_elements(dataset: MSMarcoDataset) -> Dict[str, Any]:
     output = {}
     selected_indexes = []
 
-    # Getting the element with the longest prompt.
-    prompt_lengths = [len(LLMClassifierDataset.prompt(element.passages, element.query)) for element in dataset]
-    max_prompt_len = max(prompt_lengths)
-    max_prompt_index = prompt_lengths.index(max_prompt_len)
-    output['max'] = (dataset[max_prompt_index], max_prompt_index)
-    selected_indexes.append(max_prompt_index)
+    # Getting the element with the longest long prompt.
+    max_long_prompt = max([LLMClassifierDataset.prompt(element.passages, element.query) for element in dataset],
+                          key=len)
+    output['long_max'] = max_long_prompt
+
+    # Getting the element with the longest short prompt.
+    max_short_prompt = max([LLMClassifierDataset.prompt(element.chosen_passages, element.query) for element in dataset],
+                           key=len)
+    output['short_max'] = max_short_prompt
 
     # Getting a random element with no answer.
     no_answer_elements = [element for element in dataset if len(element.answers) == 0]
@@ -49,8 +53,7 @@ def get_dataset_elements(dataset: MSMarcoDataset) -> Dict[str, Any]:
     return output
 
 
-def get_mock_ms_marco_dataset(max_element: MSMarcoItem,
-                              no_answer_elements: List[MSMarcoItem],
+def get_mock_ms_marco_dataset(no_answer_elements: List[MSMarcoItem],
                               many_answer_elements: List[MSMarcoItem],
                               random_elements: List[MSMarcoItem]) -> Dict[str, Any]:
     """
@@ -72,7 +75,6 @@ def get_mock_ms_marco_dataset(max_element: MSMarcoItem,
     - The other half of the random elements will have their answers be answers, with no wellFormedAnswers.
 
     Args:
-        max_element: The element with the longest prompt.
         no_answer_elements: Two elements with no answers.
         many_answer_elements: Two elements with multiple answers.
         random_elements: Six other random elements.
@@ -83,26 +85,22 @@ def get_mock_ms_marco_dataset(max_element: MSMarcoItem,
     # Initializing our output
     output = {'query': {}, 'query_type': {}, 'query_id': {}, 'passages': {}, 'answers': {}, 'wellFormedAnswers': {}}
 
-    # Inserting the max_element.
-    output = _add_element_to_output(0, max_element, output, False)
-
     # Inserting the no answer elements.
-    output = _add_element_to_output(1, no_answer_elements[0], output, False)
-    output = _add_element_to_output(2, no_answer_elements[1], output, True)
+    output = _add_element_to_output(0, no_answer_elements[0], output, False)
+    output = _add_element_to_output(1, no_answer_elements[1], output, True)
 
     # Inserting one many answer element with wellFormedAnswers, the other without.
-    output = _add_element_to_output(3, many_answer_elements[0], output, True)
-    output = _add_element_to_output(4, many_answer_elements[1], output, False)
+    output = _add_element_to_output(2, many_answer_elements[0], output, True)
+    output = _add_element_to_output(3, many_answer_elements[1], output, False)
 
     # Inserting the first half of the random elements without wellFormedAnswers.
     split_point = len(random_elements) // 2
-    i = 5
+    i = 4
     for element in random_elements[:split_point]:
         output = _add_element_to_output(i, element, output, False)
         i += 1
 
     # Inserting the second half of the random elements with wellFormedAnswers.
-    split_point = len(random_elements) // 2
     for element in random_elements[:split_point]:
         output = _add_element_to_output(i, element, output, True)
         i += 1
@@ -191,37 +189,43 @@ def write_mock_ms_marco_data() -> None:
     # Assume we are running from the /test directory.
     train_file = '../../data/MS_MARCO/train_v2.1.json'
     test_file = '../../data/MS_MARCO/dev_v2.1.json'
-    output_file = 'mock_ms_marco_data.json'
+    mock_dataset_file = 'mock_data_ms_marco.json'
+    max_prompt_file = 'mock_data_max_prompts.json'
 
     # Getting the elements from the testing set.
     print('Reading the testing set...')
     test_dataset = MSMarcoDataset(test_file)
-    test_elements = get_dataset_elements(test_dataset)
+    test_elements = get_mock_data_elements(test_dataset)
     print('Done')
 
     # Getting the elements from the training set.
     print('Reading the training set...')
     train_dataset = MSMarcoDataset(train_file)
-    train_elements = get_dataset_elements(train_dataset)
+    train_elements = get_mock_data_elements(train_dataset)
     print('Done')
 
-    print('Generating the mock set...')
-    # Getting the max element by looking at both sets.
-    train_max_greater = train_elements['max'][1] > test_elements['max'][1]
-    max_element = train_elements['max'][0] if train_max_greater else test_elements['max'][0]
+    print('Generating the mock sets...')
 
-    # Getting the other elements.
+    # Getting the mock dataset elements.
     no_answer_elements = [train_elements['no_answer'], test_elements['no_answer']]
     many_answer_elements = [train_elements['many_answer'], test_elements['many_answer']]
     random_elements = train_elements['random'] + test_elements['random']
 
     # Building our MS MARCO dataset dict.
-    mock_dataset = get_mock_ms_marco_dataset(max_element, no_answer_elements, many_answer_elements, random_elements)
+    mock_dataset = get_mock_ms_marco_dataset(no_answer_elements, many_answer_elements, random_elements)
 
-    # Writing the output dict to the output file.
-    with open(output_file, 'w+') as f:
+    # Writing the mock dataset dict to the mock dataset file.
+    with open(mock_dataset_file, 'w+') as f:
         json.dump(mock_dataset, f, indent=4)
     print('Done')
+
+    # Writing our max prompts to the max prompts file.
+    max_data = {
+        'max_long_prompt': max(test_elements['long_max'], train_elements['long_max'], key=len),
+        'max_short_prompt': max(test_elements['short_max'], train_elements['short_max'], key=len)
+    }
+    with open(max_prompt_file, 'w+') as f:
+        json.dump(max_data, f, indent=4)
 
 
 if __name__ == '__main__':
