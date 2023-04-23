@@ -132,8 +132,7 @@ dmypy.json
 .idea
 
 # Large data files
-data/bloom_1_1B/test_short_prompts - Copy.sqlite3
-data/bloom_1_1B/train_short_prompts.sqlite3
+data/bloom_1_1B
 data/fasttext/wiki.en.bin
 data/fasttext/wiki.en.vec
 data/MS_MARCO/dev_v2.1.json
