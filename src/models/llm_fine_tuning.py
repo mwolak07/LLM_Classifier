@@ -3,7 +3,7 @@ from sklearn.model_selection import train_test_split
 from keras.callbacks import TensorBoard
 from keras.optimizers import Adam
 from keras.models import Model
-from typing import Tuple, Any
+from typing import Tuple
 from sklearn import metrics
 from numpy import ndarray
 import numpy as np
@@ -27,7 +27,7 @@ def load_data(model_name: str) -> Tuple[ndarray[float], ndarray[float], ndarray[
     # tokenizer.pad_token = tokenizer.eos_token
     # Loading in and processing the data.
     cd_to_executing_file(__file__)
-    db_path = '../../data/bloom_1_1B/test_short_prompts.sqlite3'
+    db_path = '../../data/bloom_1_1B/test_short_prompts_old.sqlite3'
     dataset = LLMClassifierDataset(db_path)
     features = [item[0] for item in dataset]
     labels = [item[1] for item in dataset]
@@ -69,12 +69,12 @@ def train(x: ndarray[float], y: ndarray[int], model_name: str, epochs: int) -> N
     model = load_model(model_name)
     # Loading in the model fitting it to the data.
     model.fit(x, y, batch_size=2,
-              validation_split=0.2, epochs=epochs,
+              validation_split=0.25, epochs=epochs,
               callbacks=[TensorBoard(log_dir=f'../logs/llm_fine_tuning/{model_file}')])
-    model.save_weights(filepath=f'../model_weights/{model_file}', format='h5')
+    model.save_weights(filepath=f'../model_weights/{model_file}.h5', save_format='h5')
 
 
-def test(x: ndarray[float], y: ndarray[int], model_name: str) -> Any:
+def test(x: ndarray[float], y: ndarray[int], model_name: str) -> None:
     """
     Tests the model with the vectorized text features and classification labels.
 
@@ -85,8 +85,19 @@ def test(x: ndarray[float], y: ndarray[int], model_name: str) -> Any:
     """
     model_file = model_name.split('/')[-1]
     model = load_model(model_name)
-    model.load_weights(f'../model_weights/{model_file}')
-    return model.evaluate(x, y, batch_size=32)
+    model.load_weights(f'../model_weights/{model_file}.h5')
+    logits = model.predict(x)['logits']
+    predictions = np.argmax(logits, axis=1)
+    auc = metrics.roc_auc_score(y_true=y, y_score=predictions)
+    precision = metrics.precision_score(y_true=y, y_pred=predictions)
+    recall = metrics.recall_score(y_true=y, y_pred=predictions)
+    f1 = metrics.f1_score(y_true=y, y_pred=predictions)
+    evaluation = model.evaluate(x, y, batch_size=2)
+    print(f'auc: {auc}')
+    print(f'precision: {precision}')
+    print(f'recall: {recall}')
+    print(f'f1: {f1}')
+    print(f'evaluation: {evaluation}')
 
 
 def fine_tune_model(model_name: str) -> None:
@@ -99,7 +110,7 @@ def fine_tune_model(model_name: str) -> None:
     print(f'Loading data...')
     x_train, x_test, y_train, y_test = load_data(model_name)
     print(f'Training model...')
-    train(x_train, y_train, model_name=model_name, epochs=5)
+    train(x_train, y_train, model_name=model_name, epochs=4)
     print(f'Testing model...')
     print(test(x_test, y_test, model_name=model_name))
 

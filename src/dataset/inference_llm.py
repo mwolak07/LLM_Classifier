@@ -1,6 +1,6 @@
 from transformers import PreTrainedModel, PreTrainedTokenizer, AutoModelForCausalLM, AutoTokenizer
 from torch import device, cuda, float16
-from typing import List, Tuple
+from typing import List, Tuple, Any
 from abc import ABC
 import numpy as np
 import json
@@ -91,7 +91,7 @@ class InferenceLLM(ABC):
     def postprocess_answer(answer: str) -> str:
         """
         Post-processes an answer. This involves removing the last sentence if it cut off part way through, and removing
-        any repeated sentences at the end of the output.
+        any repeated sentences at the end of the output. Limit answers to a maximum of 4 sentences.
 
         Args:
             answer: The answer we are post-processing.
@@ -132,6 +132,9 @@ class InferenceLLM(ABC):
                 new_sentences.append(sentence)
             last_sentence = sentence
         sentences = new_sentences
+        # Limiting the output to 4 sentences.
+        if len(sentences) > 4:
+            sentences = sentences[:4]
         # Concatenating the result and returning it.
         answer = ''.join(sentences)
         # Add spaces after punctuation.
@@ -219,19 +222,19 @@ class InferenceLLM(ABC):
         return answers.tolist(), tries_list.tolist()
 
     @staticmethod
-    def get_batches(questions: List[str], batch_size: int) -> List[List[str]]:
+    def get_batches(array: List[Any], batch_size: int) -> List[List[str]]:
         """
-        Splits the questions into batches of size batch_size for batch inference, and converts to numpy arrays.
+        Splits the given array into batches of size batch_size for batch inference, and converts to numpy arrays.
 
         Args:
-            questions: The list of questions to split into batches.
+            array: The array to be split into batches.
             batch_size: The size of each batch of questions we want to be generating.
 
         Returns:
             A list of lists of questions, representing batches for the model, as a numpy array.
         """
-        batch_indexes = np.arange(batch_size, len(questions), batch_size)
-        batches = np.array_split(np.array(questions), batch_indexes)
+        batch_indexes = np.arange(batch_size, len(array), batch_size)
+        batches = np.array_split(np.array(array), batch_indexes)
         return [batch.tolist() for batch in batches]
 
     def answer_batch(self, question_batch: List[str], answer_batch: List[str], max_answer_len: int,
