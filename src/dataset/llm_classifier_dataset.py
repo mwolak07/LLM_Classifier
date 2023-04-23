@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Any
 from collections.abc import Sequence
 from torch.utils.data import Dataset
 from numpy import ndarray
@@ -198,6 +198,69 @@ class LLMClassifierDataset(Sequence, Dataset):
         output += f'The short answer, in complete sentences, to the question: "{query}?", is:\n'
         return output
 
+    @staticmethod
+    def sort_array_value(array: List[Any]) -> Tuple[List[Any], List[int]]:
+        """
+        Sorts the array by value, and returns a list of the sorted indices. This allows the list to be "unsorted"
+        after, and other arrays to be "sorted" in the same order.
+
+        Args:
+            array: The array to be sorted.
+
+        Returns:
+            The sorted array, and the sorted indexes.
+
+        Raises:
+            RuntimeError: If argsort returns an int instead of an ndarray.
+        """
+        # Using numpy argsort to accomplish this operation.
+        array = np.array(array)
+        sorted_indices = np.argsort(array)
+        # Checking the type of sorted_indices
+        if isinstance(sorted_indices, int):
+            raise RuntimeError('Numpy argsort returned only an int!')
+        sorted_indices = np.array(sorted_indices)
+        array = array[sorted_indices]
+        # Converting to python lists and returning.
+        return array.aslist(), sorted_indices.aslist()
+
+    @staticmethod
+    def sort_array_indices(array: List[Any], sorted_indices: List[int]) -> List[Any]:
+        """
+        Sorts the given array according to a pre-determined order, given by the sorted indices.
+
+        Args:
+            array: The array to be sorted.
+            sorted_indices: The sorted indices encoding the order we want to sort the array by.
+
+        Returns:
+            The array sorted in the order supplied by sorted_indices.
+        """
+        # Using advanced numpy indexing.
+        array = np.array(array)
+        sorted_indices = np.array(sorted_indices)
+        array = array[sorted_indices]
+        return array.aslist()
+
+    @staticmethod
+    def unsort_array(sorted_array: List[Any], sorted_indices: List[int]) -> List[Any]:
+        """
+        Unsorted the array, given the sorted array and the sorted indices, using the order encoded in the sorted indices
+        to undo the sort.
+
+        Args:
+            sorted_array: The array that has already been sorted.
+            sorted_indices: The indices encoding the order of the sorted array.
+
+        Returns:
+            The sorted_array, back in its original order.
+        """
+        # Using numpy argsort to accomplish this operation.
+        sorted_array = np.array(sorted_array)
+        sorted_indices = np.array(sorted_indices)
+        array = sorted_array[np.argsort(sorted_indices)]
+        return array.aslist()
+
     def llm_answers_to_db(self, llm: InferenceLLM, prompts: List[str], answer_lengths: List[int], batch_size: int = 1,
                           start_answer_index: int = 0, start_batch_index: int = 0) -> None:
         """
@@ -243,66 +306,3 @@ class LLMClassifierDataset(Sequence, Dataset):
             for answer in answer_batch:
                 self._db.add_llm_answer(answer, answer_index)
                 answer_index += 1
-
-    @staticmethod
-    def sort_array_value(array: List[str]) -> Tuple[List[str], List[int]]:
-        """
-        Sorts the array by value, and returns a list of the sorted indices. This allows the list to be "unsorted"
-        after, and other arrays to be "sorted" in the same order.
-
-        Args:
-            array: The array to be sorted.
-
-        Returns:
-            The sorted array, and the sorted indexes.
-
-        Raises:
-            RuntimeError: If argsort returns an int instead of an ndarray.
-        """
-        # Using numpy argsort to accomplish this operation.
-        array = np.array(array)
-        sorted_indices = np.argsort(array)
-        # Checking the type of sorted_indices
-        if isinstance(sorted_indices, int):
-            raise RuntimeError('Numpy argsort returned only an int!')
-        sorted_indices = np.array(sorted_indices)
-        array = array[sorted_indices]
-        # Converting to python lists and returning.
-        return array.aslist(), sorted_indices.aslist()
-
-    @staticmethod
-    def sort_array_indices(array: List[str], sorted_indices: List[int]) -> List[str]:
-        """
-        Sorts the given array according to a pre-determined order, given by the sorted indices.
-
-        Args:
-            array: The array to be sorted.
-            sorted_indices: The sorted indices encoding the order we want to sort the array by.
-
-        Returns:
-            The array sorted in the order supplied by sorted_indices.
-        """
-        # Using advanced numpy indexing.
-        array = np.array(array)
-        sorted_indices = np.array(sorted_indices)
-        array = array[sorted_indices]
-        return array.aslist()
-
-    @staticmethod
-    def unsort_array(sorted_array: List[str], sorted_indices: List[int]) -> List[str]:
-        """
-        Unsorted the array, given the sorted array and the sorted indices, using the order encoded in the sorted indices
-        to undo the sort.
-
-        Args:
-            sorted_array: The array that has already been sorted.
-            sorted_indices: The indices encoding the order of the sorted array.
-
-        Returns:
-            The sorted_array, back in its original order.
-        """
-        # Using numpy argsort to accomplish this operation.
-        sorted_array = np.array(sorted_array)
-        sorted_indices = np.array(sorted_indices)
-        array = sorted_array[np.argsort(sorted_indices)]
-        return array.aslist()

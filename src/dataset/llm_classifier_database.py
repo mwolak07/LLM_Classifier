@@ -201,9 +201,9 @@ class LLMClassifierDatabase(Sequence):
 
     def create_table(self) -> None:
         """
-        Creates self.table_name in the database if it does not already exist.
+        Creates self.table_name table and index in the database if it does not already exist.
         """
-        # Setting up oir statement.
+        # Setting up our statement for creating the table and index.
         statement = f'CREATE TABLE {self.table_name} (' \
                     f'  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,' \
                     f'  query TEXT,' \
@@ -212,7 +212,8 @@ class LLMClassifierDatabase(Sequence):
                     f'  human_answer TEXT,' \
                     f'  llm_answer TEXT,' \
                     f'  has_answer INTEGER' \
-                    f');'
+                    f');' \
+                    f'CREATE INDEX {self.table_name}_id_idx ON {self.table_name} (id);'
         # Checking if the table exists
         if not self.table_exists():
             self.execute(statement)
