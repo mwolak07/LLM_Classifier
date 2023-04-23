@@ -310,3 +310,7 @@ class TestLLMClassifierDatabase(unittest.TestCase):
             self.db.clear()
         self.assertFalse(self.db.table_exists())
         self.assertTrue(len(self.db) == 0)
+
+
+if __name__ == '__main__':
+    unittest.main()
