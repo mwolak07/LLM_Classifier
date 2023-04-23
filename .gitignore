@@ -132,10 +132,12 @@ dmypy.json
 .idea
 
 # Large data files
-data/bloom_1_1B
+data/bloom_1_1B/*
 data/fasttext/wiki.en.bin
 data/fasttext/wiki.en.vec
 data/MS_MARCO/dev_v2.1.json
 data/MS_MARCO/eval_v2.1_public.json
 data/MS_MARCO/train_v2.1.json
 
+# Trained model weights
+src/model_weights/*
