@@ -35,9 +35,7 @@ class TestGenerateDatasets(unittest.TestCase):
         Deletes the datasets and temporary database files.
         """
         del self.test_dataset
-        self.test_dataset = None
         del self.train_dataset
-        self.train_dataset = None
         if os.path.exists(self.test_db_path):
             os.remove(self.test_db_path)
         if os.path.exists(self.train_db_path):

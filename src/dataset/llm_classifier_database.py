@@ -1,4 +1,4 @@
-from typing import Any, Iterable, List, Dict, Tuple, Union
+from typing import Any, Iterable, List, Dict, Tuple, Union, Optional
 from sqlite3 import connect, Connection, Cursor
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -11,12 +11,12 @@ class LLMClassifierRow:
     """
     Represents one item from the dataset for the GPT LLM classification problem.
     """
-    query: str
-    passages: List[str]
-    prompt: str
-    human_answer: str
-    llm_answer: str
-    has_answer: bool
+    query: Optional[str]
+    passages: Optional[List[str]]
+    prompt: Optional[str]
+    human_answer: Optional[str]
+    llm_answer: Optional[str]
+    has_answer: Optional[bool]
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, LLMClassifierRow):
@@ -201,21 +201,24 @@ class LLMClassifierDatabase(Sequence):
 
     def create_table(self) -> None:
         """
-        Creates self.table_name in the database if it does not already exist.
+        Creates self.table_name table and index in the database if it does not already exist.
         """
-        # Setting up oir statement.
-        statement = f'CREATE TABLE {self.table_name} (' \
-                    f'  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,' \
-                    f'  query TEXT,' \
-                    f'  passages TEXT,' \
-                    f'  prompt TEXT,' \
-                    f'  human_answer TEXT,' \
-                    f'  llm_answer TEXT,' \
-                    f'  has_answer INTEGER' \
-                    f');'
+        # Setting up our statement for creating the table.
+        table_statement = f'CREATE TABLE {self.table_name} (' \
+                          f'  id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,' \
+                          f'  query TEXT,' \
+                          f'  passages TEXT,' \
+                          f'  prompt TEXT,' \
+                          f'  human_answer TEXT,' \
+                          f'  llm_answer TEXT,' \
+                          f'  has_answer INTEGER' \
+                          f');'
+        # Setting up our statement for creating the index.
+        index_statement = f'CREATE INDEX {self.table_name}_id_idx ON {self.table_name} (id);'
         # Checking if the table exists
         if not self.table_exists():
-            self.execute(statement)
+            self.execute(table_statement)
+            self.execute(index_statement)
             self.commit()
 
     def add_ms_marco_dataset(self, dataset: MSMarcoDataset, short_prompts: bool) -> None:

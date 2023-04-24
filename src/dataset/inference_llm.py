@@ -1,6 +1,6 @@
 from transformers import PreTrainedModel, PreTrainedTokenizer, AutoModelForCausalLM, AutoTokenizer
+from typing import List, Tuple, Any, Optional
 from torch import device, cuda, float16
-from typing import List, Tuple, Any
 from abc import ABC
 import numpy as np
 import json
@@ -88,7 +88,7 @@ class InferenceLLM(ABC):
                                f'You have {ram} GB!')
 
     @staticmethod
-    def postprocess_answer(answer: str) -> str:
+    def postprocess_answer(answer: Optional[str]) -> str:
         """
         Post-processes an answer. This involves removing the last sentence if it cut off part way through, and removing
         any repeated sentences at the end of the output. Limit answers to a maximum of 4 sentences.
@@ -132,9 +132,6 @@ class InferenceLLM(ABC):
                 new_sentences.append(sentence)
             last_sentence = sentence
         sentences = new_sentences
-        # Limiting the output to 4 sentences.
-        if len(sentences) > 4:
-            sentences = sentences[:4]
         # Concatenating the result and returning it.
         answer = ''.join(sentences)
         # Add spaces after punctuation.
@@ -144,6 +141,8 @@ class InferenceLLM(ABC):
             answer = answer.replace('. .', '..').replace('! !', '!!').replace('? ?', '??')
         # Remove space after the last bit of punctuation.
         answer = answer[:-1]
+        # Replace newlines with spaces.
+        answer = answer.replace('\n', ' ')
         return answer
 
     @staticmethod
