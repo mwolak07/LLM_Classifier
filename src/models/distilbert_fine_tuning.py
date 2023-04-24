@@ -11,13 +11,14 @@ from src.dataset import LLMClassifierDataset
 from src.util import cd_to_executing_file
 
 
-def load_data(model_name: str) -> Tuple[ndarray[float], ndarray[float], ndarray[int], ndarray[int]]:
+def load_data(model_name: str, db_path: str) -> Tuple[ndarray[float], ndarray[float], ndarray[int], ndarray[int]]:
     """
     Loads the data from the LLMClassifierDataset, applies the pre-trained tokenizer, and creates the train and test
     data.
 
     Args:
         model_name: The huggingface name of the model for the pre-trained tokenizer.
+        db_path: The path the the database containing the data.
 
     Returns:
         x_train, x_test, y_train, y_test.
@@ -27,7 +28,6 @@ def load_data(model_name: str) -> Tuple[ndarray[float], ndarray[float], ndarray[
     # tokenizer.pad_token = tokenizer.eos_token
     # Loading in and processing the data.
     cd_to_executing_file(__file__)
-    db_path = '../../data/bloom_1_1B/test_short_prompts_old.sqlite3'
     dataset = LLMClassifierDataset(db_path)
     features = [item[0] for item in dataset]
     labels = [item[1] for item in dataset]
@@ -100,23 +100,25 @@ def test(x: ndarray[float], y: ndarray[int], model_name: str) -> None:
     print(f'evaluation: {evaluation}')
 
 
-def fine_tune_model(model_name: str) -> None:
+def fine_tune_model(epochs: int) -> None:
     """
     Fine-tunes an LLM model, including training and testing.
 
     Args:
-        model_name: The huggingface name of the model we are training.
+        epochs: The number of epochs to train for.
     """
+    model_name = 'distilbert-base-cased'
+    db_path = '../../data/bloom_1_1B/test_short_prompts.sqlite3'
     print(f'Loading data...')
-    x_train, x_test, y_train, y_test = load_data(model_name)
+    x_train, x_test, y_train, y_test = load_data(model_name, db_path)
     print(f'Training model...')
-    train(x_train, y_train, model_name=model_name, epochs=4)
+    train(x_train, y_train, model_name=model_name, epochs=epochs)
     print(f'Testing model...')
     print(test(x_test, y_test, model_name=model_name))
 
 
 def main() -> None:
-    fine_tune_model('distilbert-base-cased')
+    fine_tune_model(25)
 
 
 if __name__ == '__main__':
