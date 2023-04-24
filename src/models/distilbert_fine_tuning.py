@@ -1,14 +1,14 @@
 from transformers import TFAutoModelForSequenceClassification, AutoTokenizer
-from keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.model_selection import train_test_split
+from keras.callbacks import TensorBoard
 from keras.optimizers import Adam
 from keras.models import Model
 from typing import Tuple
 from sklearn import metrics
 from numpy import ndarray
 import numpy as np
+from src.util import cd_to_executing_file, SaveWeightsCallback
 from src.dataset import LLMClassifierDataset
-from src.util import cd_to_executing_file
 
 
 def load_data(model_name: str, db_path: str) -> Tuple[ndarray[float], ndarray[float], ndarray[int], ndarray[int]]:
@@ -54,7 +54,6 @@ def load_model(model_name) -> Model:
     return model
 
 
-
 def train(x: ndarray[float], y: ndarray[int], model_name: str, epochs: int) -> None:
     """
     Trains the given llm model with vectorized text features and classification labels.
@@ -70,7 +69,8 @@ def train(x: ndarray[float], y: ndarray[int], model_name: str, epochs: int) -> N
     # Defining our callbacks.
     callbacks = [
         TensorBoard(log_dir=f'../logs/llm_fine_tuning/{model_file}'),
-        ModelCheckpoint(filepath='weights.h5', save_weights_only=True, save_freq='epoch', verbose=1)
+        SaveWeightsCallback(filepath=f'../model_weights/{model_file}/weights.h5',
+                            save_format='h5', verbose=True)
     ]
     # Loading in the model fitting it to the data.
     model.fit(x, y, batch_size=2,
