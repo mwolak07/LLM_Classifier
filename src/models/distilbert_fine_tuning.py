@@ -1,6 +1,6 @@
 from transformers import TFAutoModelForSequenceClassification, AutoTokenizer
+from keras.callbacks import TensorBoard, ModelCheckpoint
 from sklearn.model_selection import train_test_split
-from keras.callbacks import TensorBoard
 from keras.optimizers import Adam
 from keras.models import Model
 from typing import Tuple
@@ -67,11 +67,15 @@ def train(x: ndarray[float], y: ndarray[int], model_name: str, epochs: int) -> N
     """
     model_file = model_name.split('/')[-1]
     model = load_model(model_name)
+    # Defining our callbacks.
+    callbacks = [
+        TensorBoard(log_dir=f'../logs/llm_fine_tuning/{model_file}'),
+        ModelCheckpoint(filepath='weights.h5', save_weights_only=True, save_freq='epoch', verbose=1)
+    ]
     # Loading in the model fitting it to the data.
     model.fit(x, y, batch_size=2,
-              validation_split=0.25, epochs=epochs,
-              callbacks=[TensorBoard(log_dir=f'../logs/llm_fine_tuning/{model_file}')])
-    model.save_weights(filepath=f'../model_weights/{model_file}.h5', save_format='h5')
+              validation_split=0.25, epochs=epochs, callbacks=callbacks)
+    model.save_weights(filepath=f'../model_weights/{model_file}/weights.h5', save_format='h5')
 
 
 def test(x: ndarray[float], y: ndarray[int], model_name: str) -> None:
