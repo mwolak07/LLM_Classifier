@@ -195,6 +195,10 @@ class TestInferenceLLMUtils(unittest.TestCase):
         sentence = context + 'Hello this is me. I give responses! I give responses! I am a robot. I like'
         answer = 'Hello this is me. I give responses! I am a robot.'
         self.assertEqual(answer, InferenceLLM.postprocess_answer(sentence))
+        # Testing newlines
+        sentence = context + 'Hello this is me.\nI give responses! I give responses!\n\nI am a robot. I like'
+        answer = 'Hello this is me. I give responses! I am a robot.'
+        self.assertEqual(answer, InferenceLLM.postprocess_answer(sentence))
 
 
 class TestInferenceLLM(ABC):

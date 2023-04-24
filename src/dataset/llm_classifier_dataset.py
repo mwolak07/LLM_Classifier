@@ -188,7 +188,7 @@ class LLMClassifierDataset(Sequence, Dataset):
             The LLM prompt for the corresponding element.
         """
         # Remove the question mark from the end of the query, if it is there.
-        if query[-1] == '?':
+        if len(query) > 0 and query[-1] == '?':
             query = query[:-1]
         # Providing the model the context passages.
         output = f'Using only the following context:\n'
@@ -222,7 +222,7 @@ class LLMClassifierDataset(Sequence, Dataset):
         sorted_indices = np.array(sorted_indices)
         array = array[sorted_indices]
         # Converting to python lists and returning.
-        return array.aslist(), sorted_indices.aslist()
+        return array.tolist(), sorted_indices.tolist()
 
     @staticmethod
     def sort_array_indices(array: List[Any], sorted_indices: List[int]) -> List[Any]:
@@ -240,7 +240,7 @@ class LLMClassifierDataset(Sequence, Dataset):
         array = np.array(array)
         sorted_indices = np.array(sorted_indices)
         array = array[sorted_indices]
-        return array.aslist()
+        return array.tolist()
 
     @staticmethod
     def unsort_array(sorted_array: List[Any], sorted_indices: List[int]) -> List[Any]:
@@ -259,7 +259,7 @@ class LLMClassifierDataset(Sequence, Dataset):
         sorted_array = np.array(sorted_array)
         sorted_indices = np.array(sorted_indices)
         array = sorted_array[np.argsort(sorted_indices)]
-        return array.aslist()
+        return array.tolist()
 
     def llm_answers_to_db(self, llm: InferenceLLM, prompts: List[str], answer_lengths: List[int], batch_size: int = 1,
                           start_answer_index: int = 0, start_batch_index: int = 0) -> None:
