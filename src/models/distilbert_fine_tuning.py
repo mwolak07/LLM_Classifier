@@ -73,7 +73,7 @@ def train(x: ndarray[float], y: ndarray[int], model_name: str, epochs: int) -> N
     callbacks = [
         TensorBoard(log_dir=f'../logs/{model_file}'),
         SaveWeightsCallback(filepath=f'../model_weights/{model_file}/weights.h5',
-                            save_format='h5', verbose=True)
+                            save_format='h5', verbose=False)
     ]
     # Loading in the model fitting it to the data.
     model = load_model(model_name)

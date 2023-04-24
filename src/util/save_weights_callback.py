@@ -26,7 +26,7 @@ class SaveWeightsCallback(Callback):
     def on_epoch_end(self, epoch: int, logs: Dict[str, Any] = None) -> None:
         extension = '.' + self.filepath.split('.')[-1]
         extension_index = self.filepath.index(extension)
-        epoch_filepath = f'{self.filepath[:extension_index]}_epoch_{epoch}.{extension}'
+        epoch_filepath = f'{self.filepath[:extension_index]}_epoch_{epoch + 1}.{extension}'
         self.model.save_weights(filepath=epoch_filepath, save_format=self.save_format)
         if self.verbose:
             print(f'Saving weights for epoch {epoch} to {epoch_filepath}')
