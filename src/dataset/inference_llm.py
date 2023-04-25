@@ -137,8 +137,8 @@ class InferenceLLM(ABC):
         # Add spaces after punctuation.
         answer = answer.replace('.', '. ').replace('!', '! ').replace('?', '? ')
         # Remove spaces between double punctuation.
-        while '. .' in answer or '! !' in answer or '? ?' in answer:
-            answer = answer.replace('. .', '..').replace('! !', '!!').replace('? ?', '??')
+        while '. .' in answer or '! !' in answer or '? ?' in answer or '  ' in answer:
+            answer = answer.replace('. .', '..').replace('! !', '!!').replace('? ?', '??').replace('  ', ' ')
         # Remove space after the last bit of punctuation.
         answer = answer[:-1]
         # Replace newlines with spaces.

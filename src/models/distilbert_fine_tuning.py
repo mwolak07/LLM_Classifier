@@ -1,5 +1,4 @@
 from transformers import TFAutoModelForSequenceClassification, AutoTokenizer
-from sklearn.model_selection import train_test_split
 from keras.callbacks import TensorBoard
 from keras.optimizers import Adam
 from keras.models import Model
@@ -12,14 +11,16 @@ from src.util import cd_to_executing_file, SaveWeightsCallback
 from src.dataset import LLMClassifierDataset
 
 
-def load_data(model_name: str, db_path: str) -> Tuple[ndarray[float], ndarray[float], ndarray[int], ndarray[int]]:
+def load_data(model_name: str, train_db_path: str, test_db_path: str) -> \
+        Tuple[ndarray[float], ndarray[float], ndarray[int], ndarray[int]]:
     """
     Loads the data from the LLMClassifierDataset, applies the pre-trained tokenizer, and creates the train and test
     data.
 
     Args:
         model_name: The huggingface name of the model for the pre-trained tokenizer.
-        db_path: The path the the database containing the data.
+        train_db_path: The path the the database containing the training data.
+        test_db_path: The path to the database containing the testing data.
 
     Returns:
         x_train, x_test, y_train, y_test.
@@ -28,16 +29,21 @@ def load_data(model_name: str, db_path: str) -> Tuple[ndarray[float], ndarray[fl
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     # Loading in and processing the data.
     cd_to_executing_file(__file__)
-    dataset = LLMClassifierDataset(db_path)
-    dataset_items = dataset.tolist()
-    features = [item[0] for item in dataset_items]
-    labels = [item[1] for item in dataset_items]
-    # Splitting the data into a training and testing set.
-    x_train, x_test, y_train, y_test = train_test_split(features, labels, train_size=0.80)
+    train_dataset = LLMClassifierDataset(train_db_path)
+    test_dataset = LLMClassifierDataset(test_db_path)
+    train_dataset_items = train_dataset.tolist()
+    test_dataset_items = test_dataset.tolist()
+    # Separating our the features and labels.
+    x_train = [item[0] for item in train_dataset_items]
+    x_test = [item[0] for item in test_dataset_items]
+    y_train = [item[1] for item in train_dataset_items]
+    y_test = [item[1] for item in test_dataset_items]
     # Tokenizing the features.
     x_train = dict(tokenizer(x_train, return_tensors='np', padding=True, truncation=True))
     x_test = dict(tokenizer(x_test, return_tensors='np', padding=True, truncation=True))
-    # Converting the labels to categorical vectors.
+    # Converting to numpy arrays.
+    x_train = np.array(x_train)
+    x_test = np.array(x_test)
     y_train = np.array(y_train)
     y_test = np.array(y_test)
     return x_train, x_test, y_train, y_test
@@ -53,7 +59,6 @@ def load_model(model_name) -> Model:
     model = TFAutoModelForSequenceClassification.from_pretrained(model_name)
     model.compile(optimizer=Adam(3e-5), metrics=['accuracy'])
     return model
-
 
 
 def train(x: ndarray[float], y: ndarray[int], model_name: str, epochs: int) -> None:
@@ -136,9 +141,10 @@ def fine_tune_model(epochs: int) -> None:
         epochs: The number of epochs to train for.
     """
     model_name = 'distilbert-base-cased'
-    db_path = '../../data/bloom_1_1B/test_short_prompts_old.sqlite3'
+    train_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_train.sqlite3'
+    test_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_test.sqlite3'
     print(f'Loading data...')
-    x_train, x_test, y_train, y_test = load_data(model_name, db_path)
+    x_train, x_test, y_train, y_test = load_data(model_name, train_db_path=train_db_path, test_db_path=test_db_path)
     print(f'Training model...')
     train(x_train, y_train, model_name=model_name, epochs=epochs)
     print(f'Testing model...')

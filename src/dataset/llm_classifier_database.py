@@ -79,8 +79,8 @@ class LLMClassifierDatabase(Sequence):
         """
         if index >= len(self):
             raise IndexError(f'index {index} is out of range of database of length {len(self)}')
-        statement = f'SELECT {self.columns_json_extract()} FROM {self.table_name} WHERE id=:id;'
-        values = {'cols': self.columns_json_extract(), 'id': index + 1}
+        statement = f'SELECT {self.columns()} FROM {self.table_name} WHERE id=:id;'
+        values = {'cols': self.columns(), 'id': index + 1}
         result = self.execute(statement, values).fetchone()
         return self.decode_row(result)
 
@@ -150,12 +150,12 @@ class LLMClassifierDatabase(Sequence):
         self._connection.close()
 
     @staticmethod
-    def columns_json_extract() -> str:
+    def columns() -> str:
         """
-        Gets a string of all of the columns with json_extract added appropriately in the table. Intended for SELECT.
+        Gets a string of all of the columns. Intended for SELECT, INSERT, or UPDATE.
 
         Returns:
-            The columns of the table, with json_extract added where needed.
+            The columns of the table.
         """
         return 'id, ' \
                'query, ' \
@@ -220,6 +220,30 @@ class LLMClassifierDatabase(Sequence):
             self.execute(table_statement)
             self.execute(index_statement)
             self.commit()
+
+    def add_rows(self, rows: List[LLMClassifierRow]) -> None:
+        """
+        Inserts the given rows into the table.
+
+        Args:
+            rows: The rows to insert into the database
+        """
+        statement = f'INSERT INTO {self.table_name}' \
+                    f'(query, passages, prompt, human_answer, llm_answer, has_answer) ' \
+                    f'VALUES (' \
+                    f'  :query, ' \
+                    f'  :passages, ' \
+                    f'  :prompt, ' \
+                    f'  :human_answer, ' \
+                    f'  :llm_answer, ' \
+                    f'  :has_answer' \
+                    f')'
+        values_list = [{'query': row.query, 'passages': json.dumps(row.passages), 'prompt': row.prompt,
+                        'human_answer': row.human_answer, 'llm_answer': row.llm_answer,
+                        'has_answer': int(row.has_answer)} for row in rows]
+        # Executing the statement for all values in the list.
+        self.executemany(statement, values_list)
+        self.commit()
 
     def add_ms_marco_dataset(self, dataset: MSMarcoDataset, short_prompts: bool) -> None:
         """

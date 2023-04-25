@@ -155,6 +155,11 @@ class TestInferenceLLMUtils(unittest.TestCase):
             sentence = context + f'{p}Test'
             answer = f'Test.'
             self.assertEqual(answer, InferenceLLM.postprocess_answer(sentence))
+        # Testing spaces in the middle.
+        for i in range(1, 5):
+            sentence = context + f'Test{" "  * i}Test.'
+            answer = f'Test Test.'
+            self.assertEqual(answer, InferenceLLM.postprocess_answer(sentence))
         # Testing a long sentence that ends with punctuation.
         sentence = context + 'Hello! This is a test. We will see, if this works! The big question is, can it do ' \
                              'multiple punctuation? I guess when this runs, we will find out.'

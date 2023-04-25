@@ -43,10 +43,10 @@ def generate_datasets_for_llm(llm: InferenceLLM, db_folder: str, batch_size: int
     cd_to_executing_file(__file__)
     print('Generating testing set...')
     generate_dataset(ms_marco_test, short_prompts=True, llm=llm, batch_size=batch_size,
-                     db_path=os.path.join(db_folder, 'test_short_prompts.sqlite3'))
+                     db_path=os.path.join(db_folder, 'dev_v2.1_short_prompts.sqlite3'))
     print('Generating training set...')
     generate_dataset(ms_marco_train, short_prompts=True, llm=llm, batch_size=batch_size,
-                     db_path=os.path.join(db_folder, 'train_short_prompts.sqlite3'))
+                     db_path=os.path.join(db_folder, 'train_v2.1_short_prompts.sqlite3'))
     
 
 def generate_datasets():
