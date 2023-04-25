@@ -1,51 +1,35 @@
 from transformers import TFAutoModelForSequenceClassification, AutoTokenizer
 from keras.callbacks import TensorBoard
+from typing import Tuple, Dict, Any
 from keras.optimizers import Adam
 from keras.models import Model
-from typing import Tuple
 from sklearn import metrics
 from numpy import ndarray
 import numpy as np
 import os
-from src.util import cd_to_executing_file, SaveWeightsCallback
-from src.dataset import LLMClassifierDataset
+from src.util import cd_to_executing_file, SaveWeightsCallback, load_data
 
 
-def load_data(model_name: str, train_db_path: str, test_db_path: str) -> \
-        Tuple[ndarray[float], ndarray[float], ndarray[int], ndarray[int]]:
+def get_data(model_name: str, train_db_path: str, test_db_path: str) -> \
+        Tuple[Dict[Any], Dict[Any], ndarray[int], ndarray[int]]:
     """
-    Loads the data from the LLMClassifierDataset, applies the pre-trained tokenizer, and creates the train and test
-    data.
+    Gets the data from the train and test databases, and applies the tokenizer for the model.
 
     Args:
-        model_name: The huggingface name of the model for the pre-trained tokenizer.
-        train_db_path: The path the the database containing the training data.
-        test_db_path: The path to the database containing the testing data.
+        model_name: The huggingface name of the model we are loading data for.
+        train_db_path: The path to the training database.
+        test_db_path: The path to the testing database.
 
     Returns:
         x_train, x_test, y_train, y_test.
     """
+    # Loading in the data.
+    x_train, x_test, y_train, y_test = load_data(train_db_path, test_db_path)
     # Loading in the tokenizer.
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    # Loading in and processing the data.
-    cd_to_executing_file(__file__)
-    train_dataset = LLMClassifierDataset(train_db_path)
-    test_dataset = LLMClassifierDataset(test_db_path)
-    train_dataset_items = train_dataset.tolist()
-    test_dataset_items = test_dataset.tolist()
-    # Separating our the features and labels.
-    x_train = [item[0] for item in train_dataset_items]
-    x_test = [item[0] for item in test_dataset_items]
-    y_train = [item[1] for item in train_dataset_items]
-    y_test = [item[1] for item in test_dataset_items]
     # Tokenizing the features.
-    x_train = dict(tokenizer(x_train, return_tensors='np', padding=True, truncation=True))
-    x_test = dict(tokenizer(x_test, return_tensors='np', padding=True, truncation=True))
-    # Converting to numpy arrays.
-    x_train = np.array(x_train)
-    x_test = np.array(x_test)
-    y_train = np.array(y_train)
-    y_test = np.array(y_test)
+    x_train = dict(tokenizer(x_train.tolist(), return_tensors='np', padding=True, truncation=True))
+    x_test = dict(tokenizer(x_test.tolist(), return_tensors='np', padding=True, truncation=True))
     return x_train, x_test, y_train, y_test
 
 
@@ -144,7 +128,7 @@ def fine_tune_model(epochs: int) -> None:
     train_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_train.sqlite3'
     test_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_test.sqlite3'
     print(f'Loading data...')
-    x_train, x_test, y_train, y_test = load_data(model_name, train_db_path=train_db_path, test_db_path=test_db_path)
+    x_train, x_test, y_train, y_test = get_data(model_name, train_db_path=train_db_path, test_db_path=test_db_path)
     print(f'Training model...')
     train(x_train, y_train, model_name=model_name, epochs=epochs)
     print(f'Testing model...')
