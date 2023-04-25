@@ -104,7 +104,7 @@ def test(x: ndarray[float], y: ndarray[int], model_name: str) -> None:
     """
     model_file = model_name.split('/')[-1]
     model = load_model(model_name)
-    model.load_weights(f'../model_weights/{model_file}/weights.h5')
+    model.load_weights(f'../model_weights/{model_file}/weights_epoch_2.h5')
     logits = model.predict(x)['logits']
     predictions = np.argmax(logits, axis=1)
     auc = metrics.roc_auc_score(y_true=y, y_score=predictions)
@@ -131,8 +131,8 @@ def fine_tune_model(epochs: int) -> None:
     test_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_test.sqlite3'
     print(f'Loading data...')
     x_train, x_test, y_train, y_test = get_data(model_name, train_db_path=train_db_path, test_db_path=test_db_path)
-    print(f'Training model...')
-    train(x_train, y_train, model_name=model_name, epochs=epochs)
+    # print(f'Training model...')
+    # train(x_train, y_train, model_name=model_name, epochs=epochs)
     print(f'Testing model...')
     print(test(x_test, y_test, model_name=model_name))
 
