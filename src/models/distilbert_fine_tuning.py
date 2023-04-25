@@ -11,7 +11,7 @@ from src.util import cd_to_executing_file, SaveWeightsCallback, load_data
 
 
 def get_data(model_name: str, train_db_path: str, test_db_path: str) -> \
-        Tuple[Dict[Any], Dict[Any], ndarray[int], ndarray[int]]:
+        Tuple[Dict[str, Any], Dict[str, Any], ndarray[int], ndarray[int]]:
     """
     Gets the data from the train and test databases, and applies the tokenizer for the model.
 
@@ -24,10 +24,12 @@ def get_data(model_name: str, train_db_path: str, test_db_path: str) -> \
         x_train, x_test, y_train, y_test.
     """
     # Loading in the data.
+    print(f'Reading database...')
     x_train, x_test, y_train, y_test = load_data(train_db_path, test_db_path)
     # Loading in the tokenizer.
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     # Tokenizing the features.
+    print(f'Tokenizing features...')
     x_train = dict(tokenizer(x_train.tolist(), return_tensors='np', padding=True, truncation=True))
     x_test = dict(tokenizer(x_test.tolist(), return_tensors='np', padding=True, truncation=True))
     return x_train, x_test, y_train, y_test
