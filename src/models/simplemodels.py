@@ -7,14 +7,14 @@ from sklearn.datasets import load_iris
 from sklearn import svm
 import gensim
 from gensim.models import fasttext
-import shap
+from src.util import load_data
 import re
 
 
 
 from src.dataset import LLMClassifierDataset
 
-print("WE IN BABY")
+print("CODE HAS STARTED")
 
 #returns predictions on test data using LogReg model
 def generateLogisticRegression(data, classes, predictMe):
@@ -89,29 +89,39 @@ def padInput(data):
 
 
 print("database")
-dbdata = LLMClassifierDataset(db_path="src/models/test_short_prompts.sqlite3", load_to_memory=False)
-dbdata = dbdata.tolist()
+# dbdata = LLMClassifierDataset(db_path="src/models/test_short_prompts.sqlite3", load_to_memory=False)
+x_train, x_test, y_train, y_test = load_data("FILL ME IN", "FILL ME IN")
+x_train = runfasttext(x_train)
+y_train = runfasttext(y_train)
+x_test = runfasttext(x_test)
+y_test = runfasttext(y_test)
+trainData = padInput(x_train)
+trainLabels = padInput(y_train)
+testData = padInput(x_test)
+testLabels = padInput(y_test)
+# dbdata = dbdata.tolist()
 
-dbdata = LLMClassifierDataset(db_path="src/models/test_short_prompts.sqlite3", load_to_memory=False)
-dbdata = dbdata.tolist()
-allData = np.array([])
-allLabels = np.array([])
-for i in range(len(dbdata)):
-    allData = np.append(allData,dbdata[i][0])
-    allLabels = np.append(allLabels,dbdata[i][1])
+print("dbdata is ready")
+
+# allData = np.array([])
+# allLabels = np.array([])
+# for i in range(len(dbdata)):
+#     allData = np.append(allData,dbdata[i][0])
+#     allLabels = np.append(allLabels,dbdata[i][1])
     
 #this should make a marco and llm dataset
 #will have N elements, each element will be the prompt string with the answer strong attatched at the end
 
-allData = runfasttext(allData)
-allData = np.array(padInput(allData))
-p = np.random.permutation(len(allData))
-allData = allData[p]
-allLabels = allLabels[p]
-trainData = allData[0:int(1*len(allData)/2)]
-trainLabels = allLabels[0:int(1*len(allData)/2)]
-testData = allData[int(1*len(allData)/2):len(allData)]
-testLabels = allLabels[int(1*len(allData)/2):len(allData)]
+# allData = runfasttext(allData)
+# allData = np.array(padInput(allData))
+print("train test split")
+# p = np.random.permutation(len(allData))
+# allData = allData[p]
+# allLabels = allLabels[p]
+# trainData = allData[0:int(3*len(allData)/4)]
+# trainLabels = allLabels[0:int(3*len(allData)/4)]
+# testData = allData[int(3*len(allData)/4):len(allData)]
+# testLabels = allLabels[int(3*len(allData)/4):len(allData)]
 
 print(np.shape(trainData))
 print(np.shape(testData))
@@ -126,6 +136,8 @@ for i in range(len(testData)):
 flatTrain = np.array(flatTrain)
 flatTest = np.array(flatTest)
 
+print("models about to run")
+
 predClassLog = generateLogisticRegression(flatTrain,trainLabels,flatTest)
 print(predClassLog)
 runMetrics(predClassLog,testLabels)
@@ -136,21 +148,21 @@ runMetrics(predClassBayes,testLabels)
 
 
 
-logRegModel = LogisticRegression().fit(flatTrain, trainLabels)
-explainer = shap.LinearExplainer(logRegModel, flatTrain)
-shap_values = explainer.shap_values(flatTrain)
-bapValues = explainer(flatTest)
+# logRegModel = LogisticRegression().fit(flatTrain, trainLabels)
+# explainer = shap.LinearExplainer(logRegModel, flatTrain)
+# shap_values = explainer.shap_values(flatTrain)
+# bapValues = explainer(flatTest)
     
-shap.initjs()
-shap.plots.beeswarm(bapValues)
+# shap.initjs()
+# shap.plots.beeswarm(bapValues)
 
 
 
-guassModel = GaussianNB(penalty='l2', max_iter = 250).fit(flatTrain, trainLabels)
-explainerNB = shap.LinearExplainer(guassModel, flatTrain)
-shap_valuesNB = explainerNB.shap_values(flatTrain)
-bapValuesNB = explainerNB(flatTest)
+# guassModel = GaussianNB(penalty='l2', max_iter = 250).fit(flatTrain, trainLabels)
+# explainerNB = shap.LinearExplainer(guassModel, flatTrain)
+# shap_valuesNB = explainerNB.shap_values(flatTrain)
+# bapValuesNB = explainerNB(flatTest)
     
-shap.initjs()
-shap.plots.beeswarm(bapValuesNB)
+# shap.initjs()
+# shap.plots.beeswarm(bapValuesNB)
 
