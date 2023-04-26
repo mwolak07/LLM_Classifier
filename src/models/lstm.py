@@ -1,15 +1,17 @@
-from keras.metrics import BinaryAccuracy, AUC, TruePositives, FalsePositives, FalseNegatives
 from keras.utils import Sequence, to_categorical
 from keras.layers import LSTM, Dense, Masking
 from keras.losses import BinaryCrossentropy
 from keras.models import Model, Sequential
+from keras.metrics import BinaryAccuracy
 from keras.callbacks import TensorBoard
 from multiprocessing import cpu_count
 from keras.optimizers import Adam
 from typing import List, Tuple
+from sklearn import metrics
 from numpy import ndarray
 import numpy as np
 import random
+import math
 import os
 from src.util import Feature, SaveWeightsCallback, get_batches, fasttext_pad, cd_to_executing_file
 from src.dataset import LLMClassifierDataset
@@ -141,8 +143,8 @@ def get_dataloaders(batch_size: int, training_ratio: float) -> \
                                    training_ratio=training_ratio, use_validation=True, training_set=False, shuffle=True,
                                    fasttext=True, load_to_memory=False), \
            LLMClassifierDataLoader(db_path=test_db_path, batch_size=batch_size, max_words=max_words,
-                                   training_ratio=training_ratio, use_validation=False, training_set=True, shuffle=True,
-                                   fasttext=True, load_to_memory=False), \
+                                   training_ratio=training_ratio, use_validation=False, training_set=True,
+                                   shuffle=False, fasttext=True, load_to_memory=False), \
            max_words, word_length
 
 
@@ -163,8 +165,7 @@ def load_model(max_words: int, word_length: int) -> Model:
     model.add(LSTM(units=word_length, activation='tanh', return_sequences=False, dtype=np.float32))
     model.add(Dense(units=32, activation='relu', dtype=np.float32))
     model.add(Dense(units=2, activation='softmax', dtype=np.float32))
-    model.compile(optimizer=Adam(learning_rate=0.001), loss=BinaryCrossentropy(),
-                  metrics=[BinaryAccuracy(), AUC(), TruePositives(), FalsePositives(), FalseNegatives()])
+    model.compile(optimizer=Adam(learning_rate=0.001), loss=BinaryCrossentropy(), metrics=[BinaryAccuracy()])
     model.summary()
     return model
 
@@ -232,22 +233,20 @@ def test(test_dataloader: LLMClassifierDataLoader, model_name: str, max_words: i
     """
     model = load_model(max_words, word_length)
     model.load_weights(f'../model_weights/{model_name}/weights_epoch_10.h5')
+    logits = model.predict(test_dataloader)
+    predictions = np.argmax(logits, axis=1)
+    y = np.array([np.argmax(element) for batch in test_dataloader for element in batch[1]], dtype=int)
+    auc = metrics.roc_auc_score(y_true=y, y_score=predictions)
+    precision = metrics.precision_score(y_true=y, y_pred=predictions)
+    recall = metrics.recall_score(y_true=y, y_pred=predictions)
+    f1 = metrics.f1_score(y_true=y, y_pred=predictions)
     evaluation = model.evaluate(test_dataloader)
-    loss = evaluation[0]
-    accuracy = evaluation[1]
-    auc = evaluation[2]
-    tp = evaluation[3]
-    fp = evaluation[4]
-    fn = evaluation[5]
-    precision = tp / (tp + fp)
-    recall = tp / (tp + fn)
-    f1 = 2 * (precision * recall) / (precision + recall)
     print(f'auc: {auc}')
     print(f'precision: {precision}')
     print(f'recall: {recall}')
     print(f'f1: {f1}')
-    print(f'accuracy: {accuracy}')
-    print(f'loss: {loss}')
+    print(f'accuracy: {evaluation[1]}')
+    print(f'loss: {evaluation[0]}')
 
 
 def lstm(epochs: int, batch_size: int) -> None:
@@ -263,9 +262,9 @@ def lstm(epochs: int, batch_size: int) -> None:
     print(f'Loading data...')
     train_dataloader, validation_dataloader, test_dataloader, max_words, word_length = \
         get_dataloaders(batch_size=batch_size, training_ratio=0.75)
-    # print(f'Training model...')
-    # train(train_dataloader=train_dataloader, validation_dataloader=validation_dataloader, model_name=model_name,
-    #       max_words=max_words, word_length=word_length, epochs=epochs)
+    print(f'Training model...')
+    train(train_dataloader=train_dataloader, validation_dataloader=validation_dataloader, model_name=model_name,
+          max_words=max_words, word_length=word_length, epochs=epochs)
     print(f'Testing model...')
     test(test_dataloader=test_dataloader, model_name=model_name, max_words=max_words, word_length=word_length)
 
