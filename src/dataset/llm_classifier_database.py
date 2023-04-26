@@ -60,7 +60,7 @@ class LLMClassifierDatabase(Sequence):
         Args:
             db_path: The location on disk or the network of the database.
         """
-        self._connection = connect(db_path)
+        self._connection = connect(db_path, check_same_thread=False)
         self._cursor = self._connection.cursor()
         self.create_table()
 
