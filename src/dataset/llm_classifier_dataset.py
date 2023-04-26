@@ -145,6 +145,8 @@ class LLMClassifierDataset(Sequence, Dataset):
         print(f'Fixing the order of prompts in the database...')
         llm_answers = self.unsort_array(self._db.llm_answers(), sorted_indices)
         self._db.add_llm_answers(llm_answers)
+        # Vectorizing the human and llm answers with fasttext
+
 
     def generate_llm_prompts(self, rows: List[LLMClassifierRow]) -> Tuple[List[str], List[int], List[int]]:
         """

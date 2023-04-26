@@ -131,18 +131,18 @@ def pad_fasttext_data(x_train: List[ndarray[ndarray[float]]], x_test: List[ndarr
     # Padding each text element, according to what is necessary.
     # Training set.
     print(f'Padding train...')
-    x_train_output = np.empty((len(x_train), max_text_len, word_vector_length))
-    for i in range(len(x_train)):
+    x_train_output = []
+    for i in tqdm(range(len(x_train))):
         text = x_train[i]
         zeros = np.zeros((max_text_len - len(text), word_vector_length), dtype=float)
-        x_train_output[i] = np.concatenate((text, zeros))
+        x_train_output.append(np.concatenate((text, zeros)))
     # Testing set.
     print(f'Padding test...')
-    x_test_output = np.empty((len(x_test), max_text_len, word_vector_length))
-    for i in range(len(x_test)):
+    x_test_output = []
+    for i in tqdm(range(len(x_test))):
         text = x_test[i]
         zeros = np.zeros((max_text_len - len(text), word_vector_length), dtype=float)
-        x_test_output[i] = np.concatenate((text, zeros))
+        x_test_output.append(np.concatenate((text, zeros)))
     # Returning the result
     return x_train_output, x_test_output
 
@@ -183,7 +183,7 @@ def write_fasttext_data(train_db_path: str, test_db_path: str) -> None:
     np.save(test_file_path, x_test, allow_pickle=True)
 
 
-def fasttext_vectorize(vectorizer: FastText, text_list: ndarray[str]) -> List[ndarray[float]]:
+def fasttext_vectorize(vectorizer: FastText, text_list: ndarray[str]) -> List[ndarray[ndarray[float]]]:
     """
     Applies the pre-trained fasttext vectorizer as efficiently as possible to the given list of strings.
 

@@ -2,6 +2,8 @@ from typing import Any, Iterable, List, Dict, Tuple, Union, Optional
 from sqlite3 import connect, Connection, Cursor
 from collections.abc import Sequence
 from dataclasses import dataclass
+from numpy import ndarray
+import numpy as np
 import json
 from src.dataset import MSMarcoDataset
 
@@ -17,6 +19,8 @@ class LLMClassifierRow:
     human_answer: Optional[str]
     llm_answer: Optional[str]
     has_answer: Optional[bool]
+    human_answer_fasttext: Optional[ndarray[ndarray[float]]]
+    llm_answer_fasttext: Optional[ndarray[ndarray[float]]]
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, LLMClassifierRow):
@@ -163,10 +167,12 @@ class LLMClassifierDatabase(Sequence):
                'prompt, ' \
                'human_answer, ' \
                'llm_answer, ' \
-               'has_answer'
+               'has_answer, ' \
+               'human_answer_fasttext, ' \
+               'llm_answer_fasttext'
 
     @staticmethod
-    def decode_row(row: Tuple[int, str, str, str, str, str, int]) -> LLMClassifierRow:
+    def decode_row(row: Tuple[int, str, str, str, str, str, int, str, str]) -> LLMClassifierRow:
         """
         Takes a row from the database, and converts it into python types. Decodes the stringified JSON where needed,
         and converts everything into an LLMClassifierRow.
@@ -174,7 +180,7 @@ class LLMClassifierDatabase(Sequence):
 
         Args:
             row: A row from self.table_name: (id, query, passages, prompt, human_answer, llm_answer,
-                                          has_answer)
+                                              has_answer, human_answer_fasttext, llm_answer_fasttext)
 
         Returns:
             A pythonic LLMClassifierRow representation of the database row.
@@ -185,8 +191,11 @@ class LLMClassifierDatabase(Sequence):
         values[2] = list(json.loads(values[2]))
         # Converting int to boolean.
         values[6] = bool(values[6])
+        # Decoding the 2D numpy arrays.
+        values[7] = np.array(json.loads(values[7]))
+        values[8] = np.array(json.loads(values[8]))
         # Converting to a LLMClassifierRow. Does not include id.
-        return LLMClassifierRow(values[1], values[2], values[3], values[4], values[5], values[6])
+        return LLMClassifierRow(values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8])
 
     def table_exists(self) -> bool:
         """
@@ -211,7 +220,9 @@ class LLMClassifierDatabase(Sequence):
                           f'  prompt TEXT,' \
                           f'  human_answer TEXT,' \
                           f'  llm_answer TEXT,' \
-                          f'  has_answer INTEGER' \
+                          f'  has_answer INTEGER,' \
+                          f'  human_answer_fasttext TEXT,' \
+                          f'  llm_answer_fasttext TEXT,' \
                           f');'
         # Setting up our statement for creating the index.
         index_statement = f'CREATE INDEX {self.table_name}_id_idx ON {self.table_name} (id);'
@@ -237,10 +248,13 @@ class LLMClassifierDatabase(Sequence):
                     f'  :human_answer, ' \
                     f'  :llm_answer, ' \
                     f'  :has_answer' \
+                    f'  :human_answer_fasttext, ' \
+                    f'  :llm_answer_fasttext, ' \
                     f')'
         values_list = [{'query': row.query, 'passages': json.dumps(row.passages), 'prompt': row.prompt,
                         'human_answer': row.human_answer, 'llm_answer': row.llm_answer,
-                        'has_answer': int(row.has_answer)} for row in rows]
+                        'has_answer': int(row.has_answer), 'human_answer_fasttext': row.human_answer_fasttext,
+                        'llm_answer_fasttext': row.llm_answer_fasttext} for row in rows]
         # Executing the statement for all values in the list.
         self.executemany(statement, values_list)
         self.commit()
@@ -389,10 +403,60 @@ class LLMClassifierDatabase(Sequence):
             raise RuntimeError('Table is empty!')
         # Creating the statement.
         statement = f'UPDATE {self.table_name} SET llm_answer = :llm_answer WHERE id = :id;'
-        # Getting a list of values objects
-        values = {'llm_answer': answer, 'id': index + 1}
-        # Executing the statement for all values in the list
-        self.execute(statement, values)
+        # Getting the value object.
+        value = {'llm_answer': answer, 'id': index + 1}
+        # Executing the statement.
+        self.execute(statement, value)
+        self.commit()
+
+    def add_human_answer_fasttext(self, answer: ndarray[ndarray[float]], index: int) -> None:
+        """
+        Takes a single fasttext vectorized answer from the human, and inserts it at the given index.
+
+        Assume:
+            This should run only after add_ms_marco_dataset, when the table is not empty.
+
+        Args:
+            answer: The vectorized answer the human gave for this prompt.
+            index: The index of the prompt the LLM was r.
+
+        Raises:
+            RuntimeError: When the table is empty.
+        """
+        # Should only run when the table is not empty.
+        if len(self) == 0:
+            raise RuntimeError('Table is empty!')
+        # Creating the statement.
+        statement = f'UPDATE {self.table_name} SET human_answer_fasttext = :human_answer_fasttext WHERE id = :id;'
+        # Getting the value object.
+        value = {'human_answer_fasttext': answer, 'id': index + 1}
+        # Executing the statement.
+        self.execute(statement, value)
+        self.commit()
+
+    def add_llm_answer_fasttext(self, answer: ndarray[ndarray[float]], index: int) -> None:
+        """
+        Takes a single fasttext vectorized answer from the human, and inserts it at the given index.
+
+        Assume:
+            This should run only after add_ms_marco_dataset, when the table is not empty.
+
+        Args:
+            answer: The vectorized answer the LLM gave for this prompt.
+            index: The index of the prompt the LLM was r.
+
+        Raises:
+            RuntimeError: When the table is empty.
+        """
+        # Should only run when the table is not empty.
+        if len(self) == 0:
+            raise RuntimeError('Table is empty!')
+        # Creating the statement.
+        statement = f'UPDATE {self.table_name} SET llm_answer_fasttext = :llm_answer_fasttext WHERE id = :id;'
+        # Getting the value object.
+        value = {'llm_answer_fasttext': answer, 'id': index + 1}
+        # Executing the statement.
+        self.execute(statement, value)
         self.commit()
 
     def human_answers(self) -> List[str]:
