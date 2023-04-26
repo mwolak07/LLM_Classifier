@@ -50,7 +50,7 @@ def runMetricsMulticlass(predicted, actual):
 
 
 print("making fastext")
-model_path = "src/models/wiki.en.bin"
+model_path = "../../data/fasttext/wiki.en.bin"
 gensimModel = gensim.models.fasttext.load_facebook_model(model_path)
 # gensimModel = gensim.models.FastText.load(model_path)
 
