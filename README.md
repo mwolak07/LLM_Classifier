@@ -2,11 +2,25 @@
 This repo contains the code for a large language model (LLM) output classification project. The goal is to investigate ways of classifying if a piece of text comes from a human, or a large language model. This is our final project for CS 4400 at NEU for the spring 2023 semester.
 
 ## Directory map:
-- data: contains all of the data, large files not uploaded to github.
-  - bloom_
-  - MS_MARCO: contains the MS MARCO human data.
-  - fasttext: contains the pre-trained fasttext data.
-
+- data: all the data, large files not uploaded to github.
+  - bloom_1_1B: the database files for the Bloom 1.1B generated LLM data.
+  - MS_MARCO: the json file for the MS MARCO human data.
+  - fasttext: the files for the pre-trained fasttext weights.
+- data_analysis: exploratory analysis results.
+  - MS_MARCO: exploratory analysis results for MS MARCO.
+- docs: The documentation.
+  - build
+    - html: index.html is here.
+- src: all the source code
+  - dataset: the dataset creation and processing code.
+  - models: the implementations of the various ML models.
+  - util: misc. utilities used in dataset, models, and test.
+  - logs: the training logs from the NN models.
+  - model_results: the results from the training of each model.
+  - model_weights: the saved weights for each model. Omitted due to large file size.
+- test: all the test code.
+  - dataset: the tests for the code in src/dataset
+  
 ## Viewing the docs:
 Open the index.html file for the docs. This is under: docs/_build/html/index.html
 

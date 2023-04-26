@@ -248,3 +248,7 @@ def lstm(epochs: int, batch_size: int) -> None:
           max_words=max_words, word_length=word_length, epochs=epochs)
     print(f'Testing model...')
     test(test_dataloader=test_dataloader, model_name=model_name, max_words=max_words, word_length=word_length)
+
+
+if __name__ == '__main__':
+    lstm(25, 256)
