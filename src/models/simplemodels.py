@@ -7,7 +7,7 @@ from sklearn.datasets import load_iris
 from sklearn import svm
 import gensim
 from gensim.models import fasttext
-from src.util import load_data
+from src.util import load_data, cd_to_executing_file
 import re
 
 
@@ -89,13 +89,14 @@ def padInput(data, max_seq_length):
 
 print("database")
 # dbdata = LLMClassifierDataset(db_path="src/models/test_short_prompts.sqlite3", load_to_memory=False)
-
-trainData, testData, trainLabels, testLabels = load_data("FILL ME IN", "FILL ME IN")
+cd_to_executing_file(__file__)
+trainData, testData, trainLabels, testLabels = load_data("../../data/bloom_1_1B/dev_v2.1_short_prompts_train.sqlite3",
+                                                         "../../data/bloom_1_1B/dev_v2.1_short_prompts_test.sqlite3")
 maxV = max(max(len(seq) for seq in trainData), max(len(seq) for seq in testData))
 trainData = runfasttext(trainData)
 testData = runfasttext(testData)
-trainData = padInput(trainData,maxV)
-testData = padInput(testData,maxV)
+trainData = padInput(trainData, maxV)
+testData = padInput(testData, maxV)
 
 
 # dbdata = dbdata.tolist()
