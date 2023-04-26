@@ -1,11 +1,12 @@
 from transformers import PreTrainedModel, PreTrainedTokenizer, AutoModelForCausalLM, AutoTokenizer
-from typing import List, Tuple, Any, Optional
+from typing import List, Tuple, Optional
 from torch import device, cuda, float16
 from abc import ABC
 import numpy as np
 import json
 import time
 from src.util import cd_to_executing_file, get_ram_gb, get_vram_gb
+from src.util import get_batches
 
 
 class InferenceLLM(ABC):
@@ -205,7 +206,7 @@ class InferenceLLM(ABC):
         """
         answers = np.full((len(questions),), '')
         tries_list = np.full((len(questions),), -1)
-        question_batches = self.get_batches(questions, batch_size)
+        question_batches = get_batches(questions, batch_size)
         answer_index = 0
         for i in range(len(question_batches)):
             t = time.time()
@@ -219,22 +220,6 @@ class InferenceLLM(ABC):
             print(f'Generated batch {i + 1}/{len(question_batches)} in {time.time() - t}s '
                   f'{(i + 1) / len(question_batches) * 100}%)')
         return answers.tolist(), tries_list.tolist()
-
-    @staticmethod
-    def get_batches(array: List[Any], batch_size: int) -> List[List[str]]:
-        """
-        Splits the given array into batches of size batch_size for batch inference, and converts to numpy arrays.
-
-        Args:
-            array: The array to be split into batches.
-            batch_size: The size of each batch of questions we want to be generating.
-
-        Returns:
-            A list of lists of questions, representing batches for the model, as a numpy array.
-        """
-        batch_indexes = np.arange(batch_size, len(array), batch_size)
-        batches = np.array_split(np.array(array), batch_indexes)
-        return [batch.tolist() for batch in batches]
 
     def answer_batch(self, question_batch: List[str], answer_batch: List[str], max_answer_len: int,
                      _current_try: int = 0, _max_try: int = 3) -> Tuple[List[str], int]:

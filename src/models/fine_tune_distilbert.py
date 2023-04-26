@@ -7,22 +7,22 @@ from sklearn import metrics
 from numpy import ndarray
 import numpy as np
 import os
-from src.util import cd_to_executing_file, SaveWeightsCallback, load_data
+from src.util import cd_to_executing_file, SaveWeightsCallback
+from src.dataset import load_data
 
 
-def get_data(model_name: str, train_db_path: str, test_db_path: str) -> \
-        Tuple[Dict[str, Any], Dict[str, Any], ndarray[int], ndarray[int]]:
+def get_data(model_name: str) -> Tuple[Dict[str, Any], Dict[str, Any], ndarray[int], ndarray[int]]:
     """
     Gets the data from the train and test databases, and applies the tokenizer for the model.
 
     Args:
         model_name: The huggingface name of the model we are loading data for.
-        train_db_path: The path to the training database.
-        test_db_path: The path to the testing database.
 
     Returns:
         x_train, x_test, y_train, y_test.
     """
+    train_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_train.sqlite3'
+    test_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_test.sqlite3'
     # Loading in the data.
     print(f'Reading database...')
     x_train, x_test, y_train, y_test = load_data(train_db_path, test_db_path)
@@ -47,7 +47,7 @@ def load_model(model_name) -> Model:
     return model
 
 
-def train(x: ndarray[float], y: ndarray[int], model_name: str, epochs: int) -> None:
+def train(x: ndarray[float], y: ndarray[int], model_name: str, epochs: int, batch_size: int) -> None:
     """
     Trains the given llm model with vectorized text features and classification labels.
 
@@ -56,8 +56,8 @@ def train(x: ndarray[float], y: ndarray[int], model_name: str, epochs: int) -> N
         y: The training labels for the model to fit.
         model_name: The huggingface name of the model we are training.
         epochs: The number of epochs to train for.
+        batch_size: The size of each of the training batches.
     """
-    cd_to_executing_file(__file__)
     model_file = model_name.split('/')[-1]
     # Creating callbacks and making our directories if needed.
     make_callback_dirs(model_name)
@@ -68,7 +68,7 @@ def train(x: ndarray[float], y: ndarray[int], model_name: str, epochs: int) -> N
     ]
     # Loading in the model fitting it to the data.
     model = load_model(model_name)
-    model.fit(x, y, batch_size=8, validation_split=0.25, epochs=epochs, callbacks=callbacks)
+    model.fit(x, y, batch_size=batch_size, validation_split=0.25, epochs=epochs, callbacks=callbacks)
     model.save_weights(filepath=f'../model_weights/{model_file}/weights.h5', save_format='h5')
 
 
@@ -119,27 +119,23 @@ def test(x: ndarray[float], y: ndarray[int], model_name: str) -> None:
     print(f'evaluation: {evaluation}')
 
 
-def fine_tune_model(epochs: int) -> None:
+def fine_tune_distilbert(epochs: int, batch_size: int) -> None:
     """
-    Fine-tunes an LLM model, including training and testing.
+    Fine-tunes the distilbert LLM model, including training and testing.
 
     Args:
         epochs: The number of epochs to train for.
+        batch_size: The size of each of the training batches.
     """
+    cd_to_executing_file(__file__)
     model_name = 'distilbert-base-cased'
-    train_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_train.sqlite3'
-    test_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_test.sqlite3'
     print(f'Loading data...')
-    x_train, x_test, y_train, y_test = get_data(model_name, train_db_path=train_db_path, test_db_path=test_db_path)
-    # print(f'Training model...')
-    # train(x_train, y_train, model_name=model_name, epochs=epochs)
+    x_train, x_test, y_train, y_test = get_data(model_name)
+    print(f'Training model...')
+    train(x_train, y_train, model_name=model_name, epochs=epochs, batch_size=batch_size)
     print(f'Testing model...')
-    print(test(x_test, y_test, model_name=model_name))
-
-
-def main() -> None:
-    fine_tune_model(25)
+    test(x_test, y_test, model_name=model_name)
 
 
 if __name__ == '__main__':
-    main()
+    fine_tune_distilbert(epochs=25, batch_size=8)

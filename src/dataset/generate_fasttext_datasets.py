@@ -1,4 +1,4 @@
-from src.util import write_fasttext_data, load_fasttext_data, pad_fasttext_data
+from src.dataset import write_fasttext_data, load_fasttext_data, pad_fasttext_data
 
 
 def main() -> None:
