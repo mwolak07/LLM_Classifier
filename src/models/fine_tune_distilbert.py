@@ -1,11 +1,10 @@
+from keras.metrics import BinaryAccuracy, AUC, TruePositives, FalsePositives, FalseNegatives
 from transformers import TFAutoModelForSequenceClassification, AutoTokenizer
 from keras.callbacks import TensorBoard
 from typing import Tuple, Dict, Any
 from keras.optimizers import Adam
 from keras.models import Model
-from sklearn import metrics
 from numpy import ndarray
-import numpy as np
 import os
 from src.util import cd_to_executing_file, SaveWeightsCallback
 from src.dataset import load_data
@@ -43,7 +42,8 @@ def load_model(model_name) -> Model:
         The loaded and compiled model.
     """
     model = TFAutoModelForSequenceClassification.from_pretrained(model_name)
-    model.compile(optimizer=Adam(3e-5), metrics=['accuracy'])
+    model.compile(optimizer=Adam(3e-5),
+                  metrics=[BinaryAccuracy(), AUC(), TruePositives(), FalsePositives(), FalseNegatives()])
     return model
 
 
@@ -105,19 +105,22 @@ def test(x: ndarray[float], y: ndarray[int], model_name: str) -> None:
     model_file = model_name.split('/')[-1]
     model = load_model(model_name)
     model.load_weights(f'../model_weights/{model_file}/weights_epoch_2.h5')
-    logits = model.predict(x)['logits']
-    predictions = np.argmax(logits, axis=1)
-    auc = metrics.roc_auc_score(y_true=y, y_score=predictions)
-    precision = metrics.precision_score(y_true=y, y_pred=predictions)
-    recall = metrics.recall_score(y_true=y, y_pred=predictions)
-    f1 = metrics.f1_score(y_true=y, y_pred=predictions)
-    evaluation = model.evaluate(x, y, batch_size=2)
+    evaluation = model.evaluate(x, y)
+    loss = evaluation[0]
+    accuracy = evaluation[1]
+    auc = evaluation[2]
+    tp = evaluation[3]
+    fp = evaluation[4]
+    fn = evaluation[5]
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    f1 = 2 * (precision * recall) / (precision + recall)
     print(f'auc: {auc}')
     print(f'precision: {precision}')
     print(f'recall: {recall}')
     print(f'f1: {f1}')
-    print(f'accuracy: {evaluation["accuracy"]}')
-    print(f'loss: {evaluation["loss"]}')
+    print(f'accuracy: {accuracy}')
+    print(f'loss: {loss}')
 
 
 def fine_tune_distilbert(epochs: int, batch_size: int) -> None:

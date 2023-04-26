@@ -253,10 +253,13 @@ class LLMClassifierDatabase(Sequence):
                     f'  :human_answer_fasttext, ' \
                     f'  :llm_answer_fasttext ' \
                     f')'
+        # Encoding rows
         values_list = [{'query': row.query, 'passages': json.dumps(row.passages), 'prompt': row.prompt,
                         'human_answer': row.human_answer, 'llm_answer': row.llm_answer,
-                        'has_answer': int(row.has_answer), 'human_answer_fasttext': row.human_answer_fasttext,
-                        'llm_answer_fasttext': row.llm_answer_fasttext} for row in rows]
+                        'has_answer': int(row.has_answer),
+                        'human_answer_fasttext': json.dumps([word.tolist() for word in row.human_answer_fasttext]),
+                        'llm_answer_fasttext': json.dumps([word.tolist() for word in row.llm_answer_fasttext])}
+                       for row in rows]
         # Executing the statement for all values in the list.
         self.executemany(statement, values_list)
         self.commit()
