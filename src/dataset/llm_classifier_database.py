@@ -223,7 +223,7 @@ class LLMClassifierDatabase(Sequence):
                           f'  llm_answer TEXT,' \
                           f'  has_answer INTEGER,' \
                           f'  human_answer_fasttext TEXT,' \
-                          f'  llm_answer_fasttext TEXT,' \
+                          f'  llm_answer_fasttext TEXT' \
                           f');'
         # Setting up our statement for creating the index.
         index_statement = f'CREATE INDEX {self.table_name}_id_idx ON {self.table_name} (id);'
@@ -241,16 +241,17 @@ class LLMClassifierDatabase(Sequence):
             rows: The rows to insert into the database
         """
         statement = f'INSERT INTO {self.table_name}' \
-                    f'(query, passages, prompt, human_answer, llm_answer, has_answer) ' \
+                    f'(query, passages, prompt, human_answer, llm_answer, has_answer, human_answer_fasttext, ' \
+                    f'llm_answer_fasttext) ' \
                     f'VALUES (' \
                     f'  :query, ' \
                     f'  :passages, ' \
                     f'  :prompt, ' \
                     f'  :human_answer, ' \
                     f'  :llm_answer, ' \
-                    f'  :has_answer' \
+                    f'  :has_answer, ' \
                     f'  :human_answer_fasttext, ' \
-                    f'  :llm_answer_fasttext, ' \
+                    f'  :llm_answer_fasttext ' \
                     f')'
         values_list = [{'query': row.query, 'passages': json.dumps(row.passages), 'prompt': row.prompt,
                         'human_answer': row.human_answer, 'llm_answer': row.llm_answer,

@@ -233,9 +233,9 @@ def test(test_dataloader: LLMClassifierDataLoader, model_name: str, max_words: i
         word_length: The maximum length of a word in the input sequence.
     """
     model = load_model(max_words, word_length)
-    model.load_weights(f'../model_weights/{model_name}/weights.h5')
-    logits = model.predict(test_dataloader)['logits']
-    predictions = np.argmax(logits, axis=1)
+    model.load_weights(f'../model_weights/{model_name}/weights_epoch_10.h5')
+    predictions = model.predict(test_dataloader)
+    # predictions = np.argmax(logits, axis=1)
     y = [element[1] for batch in test_dataloader for element in batch]
     auc = metrics.roc_auc_score(y_true=y, y_score=predictions)
     precision = metrics.precision_score(y_true=y, y_pred=predictions)
@@ -263,9 +263,9 @@ def lstm(epochs: int, batch_size: int) -> None:
     print(f'Loading data...')
     train_dataloader, validation_dataloader, test_dataloader, max_words, word_length = \
         get_dataloaders(batch_size=batch_size, training_ratio=0.75)
-    print(f'Training model...')
-    train(train_dataloader=train_dataloader, validation_dataloader=validation_dataloader, model_name=model_name,
-          max_words=max_words, word_length=word_length, epochs=epochs)
+    # print(f'Training model...')
+    # train(train_dataloader=train_dataloader, validation_dataloader=validation_dataloader, model_name=model_name,
+    #       max_words=max_words, word_length=word_length, epochs=epochs)
     print(f'Testing model...')
     test(test_dataloader=test_dataloader, model_name=model_name, max_words=max_words, word_length=word_length)
 
