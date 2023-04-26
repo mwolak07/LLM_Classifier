@@ -25,7 +25,7 @@ def get_data(model_name: str) -> Tuple[Dict[str, Any], Dict[str, Any], ndarray[i
     test_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_test.sqlite3'
     # Loading in the data.
     print(f'Reading database...')
-    x_train, x_test, y_train, y_test = load_data(train_db_path, test_db_path)
+    x_train, x_test, y_train, y_test = load_data(train_db_path, test_db_path, fasttext=False)
     # Loading in the tokenizer.
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     # Tokenizing the features.
@@ -116,7 +116,8 @@ def test(x: ndarray[float], y: ndarray[int], model_name: str) -> None:
     print(f'precision: {precision}')
     print(f'recall: {recall}')
     print(f'f1: {f1}')
-    print(f'evaluation: {evaluation}')
+    print(f'accuracy: {evaluation["accuracy"]}')
+    print(f'loss: {evaluation["loss"]}')
 
 
 def fine_tune_distilbert(epochs: int, batch_size: int) -> None:

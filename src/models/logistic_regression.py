@@ -1,68 +1,84 @@
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import SGDClassifier
 from sklearn import metrics
-from numpy import ndarray
 from typing import Tuple
 from tqdm import tqdm
 import numpy as np
-from src.dataset import load_fasttext_data, pad_fasttext_data
-from src.util import cd_to_executing_file, get_batches
+from src.util import cd_to_executing_file, get_batches, fasttext_pad
+from src.dataset import LLMClassifierDataset
 
 
-def get_data() -> \
-        Tuple[ndarray[ndarray[ndarray[np.float16]]], ndarray[ndarray[ndarray[np.float16]]], ndarray[int], ndarray[int]]:
+def get_datasets() -> Tuple[LLMClassifierDataset, LLMClassifierDataset]:
     """
     Gets the data from the train and test databases, and applies the tokenizer for the model.
 
     Returns:
-        x_train, x_test, y_train, y_test.
+        train_dataset, test_dataset
     """
-    train_file_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_train_fasttext.npy'
-    test_file_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_test_fasttext.npy'
     train_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_train.sqlite3'
     test_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_test.sqlite3'
-    # Loading the vectorized data from disk, in 16 bit floats.
-    x_train, x_test, y_train, y_test = load_fasttext_data(train_file_path, test_file_path, train_db_path, test_db_path)
-    # Zero-padding the features.
-    x_train, x_test = pad_fasttext_data(x_train, x_test)
-    # Flattening the word vectors into one long sentence vector, as we need 2D data.
-    x_train = x_train.reshape((x_train.shape[0], x_train.shape[1] * x_train.shape[2]))
-    x_test = x_test.reshape((x_test.shape[0], x_test.shape[1] * x_test.shape[2]))
-    return x_train, x_test, y_train, y_test
+    return LLMClassifierDataset(db_path=train_db_path, fasttext=True, load_to_memory=False), \
+           LLMClassifierDataset(db_path=test_db_path, fasttext=True, load_to_memory=False)
 
 
-def train(model: LogisticRegression, x: ndarray[ndarray[ndarray[np.float16]]], y: ndarray[int], batch_size: int) -> \
-        LogisticRegression:
+def train(model: SGDClassifier, dataset: LLMClassifierDataset, max_words: int, batch_size: int) -> SGDClassifier:
     """
-    Trains the given GaussianNB model on the given training features and labels.
+    Trains the given GaussianNB model on the given training dataset.
 
     Args:
         model: The sklearn model we are using to train.
-        x: The set of training features.
-        y: The set of training labels.
+        dataset: The dataset we will be using to train the model.
+        max_words: The maximum number of words in an answer, for padding.
         batch_size: The size of each of the training batches.
 
     Returns:
         The model after training, with the learned weights.
     """
-    x_batches = get_batches(x, batch_size)
-    y_batches = get_batches(y, batch_size)
-    for i in tqdm(range(len(x_batches))):
-        x_batch = x_batches[i]
-        y_batch = y_batches[i]
-        model = model.partial_fit(x_batch, y_batch)
+    # Constructing our batch indexes.
+    indexes = range(len(dataset))
+    index_batches = get_batches(indexes, batch_size)
+    for i in tqdm(range(len(index_batches))):
+        # Constructing our batch.
+        batch = []
+        for j in index_batches[i]:
+            batch.append(dataset[j])
+        # Splitting into features and labels.
+        x_batch = np.array([fasttext_pad(element[0], max_words) for element in batch])
+        y_batch = np.array([element[1] for element in batch])
+        # Flattening the features.
+        x_batch = np.reshape(x_batch, (x_batch.shape[0], x_batch.shape[1] * x_batch.shape[2]))
+        # Performing the training step.
+        model = model.partial_fit(x_batch, y_batch, classes=np.array([0, 1]))
     return model
 
 
-def test(model: LogisticRegression, x: ndarray[ndarray[ndarray[np.float16]]], y: ndarray[int]) -> None:
+def test(model: SGDClassifier, dataset: LLMClassifierDataset, max_words: int, batch_size: int) -> None:
     """
-    Tests the trained model with the given testing features and labels.
+    Tests the trained model with the given testing dataset.
 
     Args:
         model: The sklearn model with learned weights (post-training) we are testing.
-        x: The set of testing features.
-        y: The set of testing labels.
+        dataset: The dataset we will be using to test the model.
+        max_words: The maximum number of words in an answer, for padding.
+        batch_size: The size of each of the training batches.
     """
-    predictions = model.predict(x)
+    y = [element[1] for element in dataset]
+    # Getting the predictions in batches.
+    predictions = np.array([])
+    # Constructing our batch indexes.
+    indexes = range(len(dataset))
+    index_batches = get_batches(indexes, batch_size)
+    for i in tqdm(range(len(index_batches))):
+        # Constructing our batch.
+        batch = []
+        for j in index_batches[i]:
+            batch.append(dataset[j])
+        # Splitting out the features.
+        x_batch = np.array([fasttext_pad(element[0], max_words) for element in batch])
+        # Flattening the features.
+        x_batch = np.reshape(x_batch, (x_batch.shape[0], x_batch.shape[1] * x_batch.shape[2]))
+        # Predicting on the features.
+        predictions = np.concatenate((predictions, model.predict(x_batch)))
+    # Computing the metrics.
     auc = metrics.roc_auc_score(y_true=y, y_score=predictions)
     precision = metrics.precision_score(y_true=y, y_pred=predictions)
     recall = metrics.recall_score(y_true=y, y_pred=predictions)
@@ -84,14 +100,16 @@ def logistic_regression(max_iter: int, batch_size: int) -> None:
         batch_size: The size of each of the training batches.
     """
     cd_to_executing_file(__file__)
-    model = LogisticRegression(penalty='l2', max_iter=max_iter)
+    model = SGDClassifier(loss='log', penalty=None, max_iter=max_iter)
     print(f'Loading data...')
-    x_train, x_test, y_train, y_test = get_data()
+    train_dataset, test_dataset = get_datasets()
+    print(f'Calculating max words...')
+    max_words = max(train_dataset.max_words(), test_dataset.max_words())
     print(f'Training model...')
-    train(model, x_train, y_train, batch_size)
+    train(model, train_dataset, max_words, batch_size)
     print(f'Testing model...')
-    test(model, x_test, y_test)
+    test(model, test_dataset, max_words, batch_size)
 
 
 if __name__ == '__main__':
-    logistic_regression(max_iter=250, batch_size=256)
+    logistic_regression(max_iter=250, batch_size=4096)

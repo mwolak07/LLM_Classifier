@@ -1,6 +1,11 @@
+from typing import Any, Dict, List, Union
 from keras.callbacks import Callback
-from typing import Any, Dict, List
+from numpy import ndarray
 import numpy as np
+
+
+# Storing the type definition for a Feature, to make things simpler.
+Feature = Union[str, ndarray[ndarray[np.float32]]]
 
 
 class SaveWeightsCallback(Callback):
@@ -33,7 +38,7 @@ class SaveWeightsCallback(Callback):
             print(f'Saving weights for epoch {epoch} to {epoch_filepath}')
 
 
-def get_batches(array: List[Any], batch_size: int) -> List[List[str]]:
+def get_batches(array: List[Any], batch_size: int) -> List[List[Any]]:
     """
     Splits the given array into batches of size batch_size..
 
@@ -47,3 +52,21 @@ def get_batches(array: List[Any], batch_size: int) -> List[List[str]]:
     batch_indexes = np.arange(batch_size, len(array), batch_size)
     batches = np.array_split(np.array(array), batch_indexes)
     return [batch.tolist() for batch in batches]
+
+
+def fasttext_pad(text: ndarray[ndarray[np.float32]], max_words: int) -> ndarray[ndarray[np.float32]]:
+    """
+    Zero-pads the given array of words (fasttext vectors), so that the number of words in the array is the same as the
+    maximum. This is used to ensure when the text vectors for all of the samples are stacked, the shape is uniform
+    (not ragged).
+
+    Args:
+        text: The block of text, in vectorized form, to be padded with zeros to max_words.
+        max_words: The maximum amount of words in a sentence, the number we are padding to.
+
+    Returns:
+        The argument text padded with zeros to have max_words word vectors.
+    """
+    word_length = len(text[0])
+    zeros = np.zeros((max_words - len(text), word_length), dtype=np.float32)
+    return np.concatenate((text, zeros))

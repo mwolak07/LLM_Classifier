@@ -31,8 +31,10 @@ class LLMClassifierRow:
         same_human_answer = self.human_answer == other.human_answer
         same_llm_answer = self.llm_answer == other.llm_answer
         same_has_answer = self.has_answer == other.has_answer
+        same_human_answer_fasttext = self.human_answer_fasttext == other.human_answer_fasttext
+        same_llm_answer_fasttext = self.llm_answer_fasttext == other.llm_answer_fasttext
         return same_query and same_passages and same_prompt and same_human_answer and same_llm_answer \
-               and same_has_answer
+               and same_has_answer and same_human_answer_fasttext and same_llm_answer_fasttext
 
 
 class LLMClassifierDatabase(Sequence):
@@ -58,7 +60,6 @@ class LLMClassifierDatabase(Sequence):
         Args:
             db_path: The location on disk or the network of the database.
         """
-
         self._connection = connect(db_path)
         self._cursor = self._connection.cursor()
         self.create_table()
@@ -409,7 +410,8 @@ class LLMClassifierDatabase(Sequence):
         self.execute(statement, value)
         self.commit()
 
-    def add_human_answer_fasttext(self, answer: ndarray[ndarray[float]], index: int) -> None:
+    def add_fasttext(self, human_answer: ndarray[ndarray[float]], llm_answer: ndarray[ndarray[float]],
+                     index: int) -> None:
         """
         Takes a single fasttext vectorized answer from the human, and inserts it at the given index.
 
@@ -417,7 +419,8 @@ class LLMClassifierDatabase(Sequence):
             This should run only after add_ms_marco_dataset, when the table is not empty.
 
         Args:
-            answer: The vectorized answer the human gave for this prompt.
+            human_answer: The vectorized answer the human gave for this prompt.
+            llm_answer: The vectorized answer the LLM gave for this prompt.
             index: The index of the prompt the LLM was r.
 
         Raises:
@@ -427,34 +430,14 @@ class LLMClassifierDatabase(Sequence):
         if len(self) == 0:
             raise RuntimeError('Table is empty!')
         # Creating the statement.
-        statement = f'UPDATE {self.table_name} SET human_answer_fasttext = :human_answer_fasttext WHERE id = :id;'
+        statement = f'UPDATE {self.table_name} SET human_answer_fasttext = :human_answer_fasttext,' \
+                    f'                             llm_answer_fasttext = :llm_answer_fasttext' \
+                    f' WHERE id = :id;'
+        # Converting from numpy arrays to python lists and then JSON stings.
+        human_answer = json.dumps([word.tolist() for word in human_answer])
+        llm_answer = json.dumps([word.tolist() for word in llm_answer])
         # Getting the value object.
-        value = {'human_answer_fasttext': answer, 'id': index + 1}
-        # Executing the statement.
-        self.execute(statement, value)
-        self.commit()
-
-    def add_llm_answer_fasttext(self, answer: ndarray[ndarray[float]], index: int) -> None:
-        """
-        Takes a single fasttext vectorized answer from the human, and inserts it at the given index.
-
-        Assume:
-            This should run only after add_ms_marco_dataset, when the table is not empty.
-
-        Args:
-            answer: The vectorized answer the LLM gave for this prompt.
-            index: The index of the prompt the LLM was r.
-
-        Raises:
-            RuntimeError: When the table is empty.
-        """
-        # Should only run when the table is not empty.
-        if len(self) == 0:
-            raise RuntimeError('Table is empty!')
-        # Creating the statement.
-        statement = f'UPDATE {self.table_name} SET llm_answer_fasttext = :llm_answer_fasttext WHERE id = :id;'
-        # Getting the value object.
-        value = {'llm_answer_fasttext': answer, 'id': index + 1}
+        value = {'human_answer_fasttext': human_answer, 'llm_answer_fasttext': llm_answer, 'id': index + 1}
         # Executing the statement.
         self.execute(statement, value)
         self.commit()

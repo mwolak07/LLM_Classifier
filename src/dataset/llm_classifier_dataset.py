@@ -1,45 +1,47 @@
 from gensim.models.fasttext import load_facebook_model, FastText
-from typing import List, Optional, Tuple, Union, Any
+from typing import List, Optional, Tuple, Any
 from collections.abc import Sequence
-from torch.utils.data import Dataset
 from numpy import ndarray
 from torch import cuda
 from tqdm import tqdm
 import numpy as np
 import time
 from src.dataset import LLMClassifierDatabase, LLMClassifierRow, InferenceLLM, MSMarcoDataset
-from src.util import cd_to_executing_file, get_batches
+from src.util import Feature, cd_to_executing_file, get_batches
 
 
-# Storing the type definition for a Feature, to make things simpler.
-Feature = Union[str, ndarray[float]]
-
-
-class LLMClassifierDataset(Sequence, Dataset):
+class LLMClassifierDataset(Sequence):
     """
     Responsible for providing a performant and easy-to-use interface for dataset for the GPT LLM classification problem.
     Uses GPTClassifierDatabase internally to store the dataset on disk.
 
     Attributes:
+        prompt_into: (class attribute) The first part of the prompt, setting up the context.
+        prompt_question: (class attribute) The part of the prompt setting up the question.
+        prompt_end: (class attribute) The last part of the prompt, encouraging an answer
+        _fasttext: If this is true, then we use the fasttext vectorized versions of string data points.
         _db: The database containing the gpt classifier dataset.
         _data: A list of Tuples of (feature, label), if we chose to load the entire dataset into memory.
     """
     prompt_into: str = 'Using only the following context:'
     prompt_question: str = 'The short answer, in complete sentences, to the question:'
     prompt_end: str = ', is:'
+    _fasttext: bool
     _db: LLMClassifierDatabase
     _data: Optional[List[Tuple[Feature, int]]]
 
-    def __init__(self, db_path: str, load_to_memory: bool = False):
+    def __init__(self, db_path: str, fasttext: bool = False, load_to_memory: bool = False):
         """
         Initializes the dataset using the database. If load_to_memory is True, it will store the entire dataset in
         memory when the object is initialized.
 
         Args:
             db_path: The location on disk of the database we are getting our data from.
+            fasttext: If true, we use the fasttext vectorized versions of the features, instead of the strings.
             load_to_memory: If true, we will load the contents of the database into memory. This will only be beneficial
                             if our dataset is smaller than our RAM.
         """
+        self._fasttext = fasttext
         self._db = LLMClassifierDatabase(db_path)
         self._data = None
         if load_to_memory:
@@ -50,10 +52,17 @@ class LLMClassifierDataset(Sequence, Dataset):
         Loads the dataset into memory by creating a list of GPTClassifierItem, which is the rows in the database
         reformatted to be a list of the human answer followed by the LLM answer with the appropriate label for each
         element.
+
+        Returns:
+            A list representation of this dataset, which is the human and llm answers interleaved.
         """
         # Getting the human and LLM answers with the appropriate labels.
-        human_answers = [(row.human_answer, 0) for row in self._db]
-        llm_answers = [(row.llm_answer, 1) for row in self._db]
+        if self._fasttext:
+            human_answers = [(row.human_answer_fasttext, 0) for row in self._db]
+            llm_answers = [(row.llm_answer_fasttext, 1) for row in self._db]
+        else:
+            human_answers = [(row.human_answer, 0) for row in self._db]
+            llm_answers = [(row.llm_answer, 1) for row in self._db]
         # Interleaving the answers.
         data = [x for pair in zip(human_answers, llm_answers) for x in pair]
         return data
@@ -68,15 +77,16 @@ class LLMClassifierDataset(Sequence, Dataset):
         # Getting the element from self._data.
         if self._data is not None:
             feature, label = self._data[index]
-        # Getting the element from the database.
+        # Getting the element at index // 2 from the database.
         else:
-            # Index is even, get the human answer at index // 2.
+            feature_element = self._db[index // 2]
+            # Index is even, get the human answer.
             if index % 2 == 0:
-                feature = self._db[index // 2].human_answer
+                feature = feature_element.human_answer_fasttext if self._fasttext else feature_element.human_answer
                 label = 0
-            # Index is odd, get the LLM answer at index // 2 + 1.
+            # Index is odd, get the llm answer.
             else:
-                feature = self._db[index // 2 + 1].llm_answer
+                feature = feature_element.llm_answer_fasttext if self._fasttext else feature_element.llm_answer
                 label = 1
         return feature, label
 
@@ -102,8 +112,19 @@ class LLMClassifierDataset(Sequence, Dataset):
         else:
             return self._load_dataset_to_memory()
 
-    def create_database(self, ms_marco_dataset: MSMarcoDataset, llm: InferenceLLM, short_prompts: bool = True,
-                        batch_size: int = 1) -> None:
+    def max_words(self) -> int:
+        """
+        Gets the maximum number of words in both the human and llm answers.
+
+        Returns:
+            The maximum number of words in an answer.
+        """
+        max_human_answer = max([len(human_answer.split(' ')) for human_answer in self._db.human_answers()])
+        max_llm_answer = max([len(llm_answer.split(' ')) for llm_answer in self._db.llm_answers()])
+        return max(max_human_answer, max_llm_answer)
+
+    def create_database(self, ms_marco_dataset: MSMarcoDataset, llm_name: str, vectorizer_path: str,
+                        short_prompts: bool = True, batch_size: int = 1) -> None:
         """
         Creates the database. This uses the MS_Marco dataset along with the llm to:
         - Insert the context and human answers to the database
@@ -113,7 +134,9 @@ class LLMClassifierDataset(Sequence, Dataset):
 
         Args:
             ms_marco_dataset: The MS_Marco dataset we are using to build the gpt classifier dataset.
-            llm: The large language model that will be answering the prompts for comparison with human answers.
+            llm_name: The name of the large language model that will be answering the prompts for comparison with human
+                      answers.
+            vectorizer_path: The path to the word vectorizer to apply to the human and llm answers after we have them.
             short_prompts: If this is True, we will use only the chosen passages in the prompts, and "no answer" cases
                            will be excluded. This will remove the "no answer" instruction from the prompt as well.
             batch_size: The batch size that can be optionally specified for inference, if you have a lot of RAM.
@@ -122,24 +145,28 @@ class LLMClassifierDataset(Sequence, Dataset):
         print(f'Inserting MS MARCO into the database...')
         self._db.add_ms_marco_dataset(ms_marco_dataset, short_prompts)
         del ms_marco_dataset
+
         # Getting the prompts and answer lengths for the LLM, and clearing the rows from memory when we are done.
         print(f'Getting the database rows...')
         rows = self._db.tolist()
         print(f'Generating prompts and target answer lengths...')
         prompts, answer_lengths, sorted_indices = self.generate_llm_prompts(rows)
         del rows
+
+        # Adding the prompts and LLM answers to the database. We don't use the more convenient answers(), because if we
+        # stop midway, the database would not be populated. Note this insertion will be out of order until it is fixed.
         print(f'WARNING: The prompts and answers will now be inserted in the incorrect order. If the program crashes '
               f'before it fixes this order, the following indices from the sort by length must be used to fix it: '
               f'{sorted_indices}')
         print(f'Inserting prompts into the database...')
         self._db.add_prompts(prompts)
-        # Adding the LLM answers to the database. We don't use the more convenient answers(), because if we stop midway,
-        # the database would not be populated.
+        print(f'Loading LLM into memory...')
+        llm = InferenceLLM(llm_name)
         print(f'Inserting LLM answers into the database...')
         self.llm_answers_to_db(llm=llm, prompts=prompts, answer_lengths=answer_lengths, batch_size=batch_size,
                                start_answer_index=0, start_batch_index=0)
-        # Getting rid of the old prompts and answer lengths, as we are done generating.
-        del prompts, answer_lengths
+        del llm, prompts, answer_lengths
+
         # Fixing the order of the prompts and LLM answers, by getting them from the DB, unsorting them, and updating
         # the DB.
         print(f'Fixing the order of LLM answers in the database...')
@@ -148,8 +175,19 @@ class LLMClassifierDataset(Sequence, Dataset):
         print(f'Fixing the order of prompts in the database...')
         llm_answers = self.unsort_array(self._db.llm_answers(), sorted_indices)
         self._db.add_llm_answers(llm_answers)
-        # Vectorizing the human and llm answers with fasttext
+        del prompts, llm_answers
 
+        # Vectorizing the human and llm answers with fasttext, and inserting the results in to the database.
+        print(f'Loading vectorizer into memory...')
+        vectorizer = load_facebook_model(vectorizer_path)
+        print(f'Inserting vectorized human and llm answers into the database...')
+        rows = self._db.tolist()
+        for i in tqdm(range(len(rows))):
+            row = rows[i]
+            human_answer = self.fasttext_vectorize(row.human_answer, vectorizer)
+            llm_answer = self.fasttext_vectorize(row.llm_answer, vectorizer)
+            self._db.add_fasttext(human_answer, llm_answer, i)
+        del vectorizer, rows
 
     def generate_llm_prompts(self, rows: List[LLMClassifierRow]) -> Tuple[List[str], List[int], List[int]]:
         """
@@ -312,170 +350,46 @@ class LLMClassifierDataset(Sequence, Dataset):
                 self._db.add_llm_answer(answer, answer_index)
                 answer_index += 1
 
+    @staticmethod
+    def fasttext_vectorize(text: str, vectorizer: FastText) -> ndarray[ndarray[np.float32]]:
+        """
+        Applies the pre-trained fasttext vectorizer as efficiently as possible to the given list of strings.
 
-def load_data(train_db_path: str, test_db_path: str) -> \
-        Tuple[ndarray[str], ndarray[str], ndarray[int], ndarray[int]]:
+        Args:
+            text: The block of text to be transformed into lists of vectors using the fasttext vectorizer.
+            vectorizer: The vectorizer to apply to the text_list.
+
+        Returns:
+            The array of text blocks transformed into vector representations.
+        """
+        output = []
+        words = text.split(' ')
+        for word in words:
+            output.append(vectorizer.wv[word])
+        return np.array(output, dtype=np.float32)
+
+
+def load_data(train_db_path: str, test_db_path: str, fasttext: bool = False) -> \
+        Tuple[ndarray[Feature], ndarray[Feature], ndarray[int], ndarray[int]]:
     """
     Loads the data from the LLMClassifierDataset and separates the data into features and labels.
 
     Args:
         train_db_path: The path the the database containing the training data.
         test_db_path: The path to the database containing the testing data.
+        fasttext: Should we use the fasttext vectorized representations instead of strings?
 
     Returns:
         x_train, x_test, y_train, y_test.
     """
     # Loading in and processing the data.
     cd_to_executing_file(__file__)
-    train_dataset = LLMClassifierDataset(train_db_path)
-    test_dataset = LLMClassifierDataset(test_db_path)
-    train_dataset_items = train_dataset.tolist()
-    test_dataset_items = test_dataset.tolist()
+    train_dataset = LLMClassifierDataset(train_db_path, fasttext=fasttext, load_to_memory=True)
+    test_dataset = LLMClassifierDataset(test_db_path, fasttext=fasttext, load_to_memory=True)
     # Separating our the features and labels.
-    x_train = [item[0] for item in train_dataset_items]
-    x_test = [item[0] for item in test_dataset_items]
-    y_train = [item[1] for item in train_dataset_items]
-    y_test = [item[1] for item in test_dataset_items]
-    # Converting to numpy arrays.
-    x_train = np.array(x_train)
-    x_test = np.array(x_test)
-    y_train = np.array(y_train)
-    y_test = np.array(y_test)
+    x_train = np.array([item[0] for item in train_dataset])
+    x_test = np.array([item[0] for item in test_dataset])
+    y_train = np.array([item[1] for item in train_dataset])
+    y_test = np.array([item[1] for item in test_dataset])
+    # Returning the results.
     return x_train, x_test, y_train, y_test
-
-
-def load_fasttext_data(train_file_path: str, test_file_path: str, train_db_path: str, test_db_path: str) -> \
-        Tuple[List[ndarray[ndarray[np.float16]]], List[ndarray[ndarray[np.float16]]], ndarray[int], ndarray[int]]:
-    """
-    Loads the fasttext vectorized data from disk, where it was saved previously. This will be a ragged list, you can use
-    pad_fasttext_vectors to pad x_train and x_text. Uses the database to load the labels.
-
-    Args:
-        train_file_path: The file path to the CSV file storing the vectorized training data.
-        test_file_path: The file path to the CSV file storing the vectorized testing data.
-        train_db_path: The path the the database containing the training data.
-        test_db_path: The path to the database containing the testing data.
-
-    Returns:
-        x_train, x_test, y_train, y_test.
-    """
-    # Loading the data from the database.
-    print(f'Loading database data...')
-    x_train, x_test, y_train, y_test = load_data(train_db_path, test_db_path)
-    # Loading the data from the numpy files.
-    print(f'Loading vectorized data...')
-    x_train = np.load(train_file_path, allow_pickle=True)
-    x_test = np.load(test_file_path, allow_pickle=True)
-    # Converting to float16
-    for i in range(len(x_train)):
-        x_train[i] = x_train[i].astype(np.float16)
-    for i in range(len(x_test)):
-        x_test[i] = x_test[i].astype(np.float16)
-    # Unpacking the data, and converting to numpy
-    x_train = [text_vector for text_vector in x_train]
-    x_test = [text_vector for text_vector in x_test]
-    y_train = np.array(y_train, dtype=np.float16)
-    y_test = np.array(y_test, dtype=np.float16)
-    return x_train, x_test, y_train, y_test
-
-
-def pad_fasttext_data(x_train: List[ndarray[ndarray[np.float16]]], x_test: List[ndarray[ndarray[np.float16]]]) \
-        -> Tuple[ndarray[ndarray[ndarray[np.float16]]], ndarray[ndarray[ndarray[np.float16]]]]:
-    """
-    Zero-pads the given list of fasttext vectors, so that the number of vectors in the list is the same as the maximum.
-    This is used to ensure when the text vectors for all of the samples are stacked, the shape is uniform (not ragged).
-    Each vector in the list has the same length, so we add n zero vectors of this length to the end of the vector_list.
-
-    Args:
-        x_train: The list of lists of vectorized words representing blocks of text in the training set.
-        x_test: The list of lists of vectorized words representing blocks of text in the testing set.
-
-    Returns:
-        x_train, x_test padded with zeros to all have the same number of word vectors.
-
-    Raises:
-        ValueError: If the size of a word vector is different in the two sets.
-    """
-    # Checking word vector lengths are consistent.
-    if len(x_train[0][0]) != len(x_test[0][0]):
-        raise ValueError(f'Word vector length mismatch between x_train and x_test! '
-                         f'{len(x_train[0][0])} != {len(x_test[0][0])}!')
-    # Getting the relevant lengths.
-    word_vector_length = len(x_train[0][0])
-    train_max_text_len = max([len(text) for text in x_train])
-    test_max_text_len = max([len(text) for text in x_test])
-    max_text_len = max(train_max_text_len, test_max_text_len)
-    # Padding each text element, according to what is necessary.
-    # Training set.
-    print(f'Padding train...')
-    x_train_output = np.empty((len(x_train), max_text_len, word_vector_length), dtype=np.float16)
-    for i in tqdm(range(len(x_train))):
-        text = x_train[i]
-        zeros = np.zeros((max_text_len - len(text), word_vector_length), dtype=np.float16)
-        x_train_output[i] = np.concatenate((text, zeros))
-    # Testing set.
-    print(f'Padding test...')
-    x_test_output = np.empty((len(x_test), max_text_len, word_vector_length), dtype=np.float16)
-    for i in tqdm(range(len(x_test))):
-        text = x_test[i]
-        zeros = np.zeros((max_text_len - len(text), word_vector_length), dtype=np.float16)
-        x_test_output[i] = np.concatenate((text, zeros))
-    # Returning the result
-    return x_train_output, x_test_output
-
-
-def write_fasttext_data(train_db_path: str, test_db_path: str) -> None:
-    """
-    Vectorizes the data from the LLMClassifierDataset using fasttext, and saves the result to disk, as JSONs of the
-    training and testing datasets. Writes these CSVs to the same directory as the source databases.
-
-    Args:
-        train_db_path: The path the the database containing the training data.
-        test_db_path: The path to the database containing the testing data.
-    """
-    # Determining the paths to save the CSV data to.
-    extension = '.sqlite3'
-    train_file_path = train_db_path.replace(extension, '') + '_fasttext.npy'
-    test_file_path = test_db_path.replace(extension, '') + '_fasttext.npy'
-    # Loading the datasets from the database.
-    print(f'Loading the data...')
-    x_train, x_test, y_train, y_test = load_data(train_db_path, test_db_path)
-    # Setting up the vectorizer.
-    print(f'Loading model...')
-    cd_to_executing_file(__file__)
-    fasttext_path = '../../data/fasttext/wiki.en.bin'
-    vectorizer = load_facebook_model(fasttext_path)
-    # Vectorizing the feature sets.
-    print(f'Vectorizing x_train...')
-    x_train = fasttext_vectorize(vectorizer, x_train)
-    print(f'Vectorizing x_test...')
-    x_test = fasttext_vectorize(vectorizer, x_test)
-    # Writing the train and test feature data directly to disk as numpy arrays.
-    x_train = np.array(x_train, dtype=object)
-    x_test = np.array(x_test, dtype=object)
-    print(f'Writing train to disk...')
-    np.save(train_file_path, x_train, allow_pickle=True)
-    print(f'Writing test to disk...')
-    np.save(test_file_path, x_test, allow_pickle=True)
-
-
-def fasttext_vectorize(vectorizer: FastText, text_list: ndarray[str]) -> List[ndarray[ndarray[float]]]:
-    """
-    Applies the pre-trained fasttext vectorizer as efficiently as possible to the given list of strings.
-
-    Args:
-        vectorizer: The vectorizer to apply to the text_list.
-        text_list: The list of blocks of text to be transformed into lists of vectors using the fasttext vectorizer.
-
-    Returns:
-        The array of text blocks transformed into vector representations.
-    """
-    # Iterating through each word in each block of text.
-    output = []
-    for i in tqdm(range(len(text_list))):
-        text = text_list[i]
-        text_vectors = []
-        for word in text.split(' '):
-            text_vectors.append(vectorizer.wv[word])
-        output.append(np.array(text_vectors))
-    return output
