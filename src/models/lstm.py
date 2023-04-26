@@ -1,9 +1,10 @@
 from keras.utils import Sequence, to_categorical
-from keras.layers import Masking, LSTM, Dense
+from keras.layers import LSTM, Dense, Masking
 from keras.losses import BinaryCrossentropy
 from keras.models import Model, Sequential
 from keras.metrics import BinaryAccuracy
 from keras.callbacks import TensorBoard
+from multiprocessing import cpu_count
 from keras.optimizers import Adam
 from typing import List, Tuple
 from sklearn import metrics
@@ -20,16 +21,21 @@ class LLMClassifierDataLoader(Sequence):
     Represents a custom batched data loader for the LLM Classifier set. Pads the data according to max_words.
 
     Attributes:
+        db_path: The path to the database.
+        fasttext: If true, we use the fasttext vectorized versions of the features, instead of the strings.
+        load_to_memory: If true, we will load the contents of the database into memory. This will only be beneficial if
+                        our dataset is smaller than our RAM.
         batch_size: The batch size we are using.
         shuffle: Should we shuffle the dataset at the end of each epoch?
-        _dataset: The underlying LLMClassifierDataset being used.
         _indexes: The list of indexes in the dataset, in the randomized order we will be sampling them in.
         _index_batches: The batches of indexes from self.indexes of size batch_size.
     """
+    db_path: str
+    fasttext: bool
+    load_to_memory: str
     batch_size: int
     max_words: int
     shuffle: bool
-    _dataset: LLMClassifierDataset
     _indexes: List[int]
     _index_batches: List[List[int]]
 
@@ -50,11 +56,14 @@ class LLMClassifierDataLoader(Sequence):
             load_to_memory: If true, we will load the contents of the database into memory. This will only be beneficial
                             if our dataset is smaller than our RAM.
         """
+        self.db_path = db_path
+        self.fasttext = fasttext
+        self.load_to_memory = load_to_memory
+        dataset = LLMClassifierDataset(db_path, fasttext, load_to_memory)
         self.batch_size = batch_size
         self.max_words = max_words
         self.shuffle = shuffle
-        self._dataset = LLMClassifierDataset(db_path, fasttext, load_to_memory)
-        self._indexes = list(range(len(self._dataset)))
+        self._indexes = list(range(len(dataset)))
         # Shuffling the indexes if needed.
         if shuffle:
             random.shuffle(self._indexes)
@@ -78,13 +87,14 @@ class LLMClassifierDataLoader(Sequence):
         Returns:
             Batch of features, batch of categorical labels.
         """
+        dataset = LLMClassifierDataset(self.db_path, self.fasttext, self.load_to_memory)
         # Constructing our batch.
         batch = []
         for i in self._index_batches[index]:
-            batch.append(self._dataset[i])
+            batch.append(dataset[i])
         # Splitting into features and labels.
-        x_batch = np.array([fasttext_pad(element[0], self.max_words) for element in batch])
-        y_batch = np.array([element[1] for element in batch])
+        x_batch = np.array([fasttext_pad(element[0], self.max_words) for element in batch], dtype=np.float32)
+        y_batch = np.array([element[1] for element in batch], dtype=np.float32)
         # Changing our y_batch to a to_categorical.
         y_batch = to_categorical(y_batch, num_classes=2)
         return x_batch, y_batch
@@ -124,7 +134,8 @@ def get_dataloaders(batch_size: int, training_ratio: float) -> \
     train_dataset = LLMClassifierDataset(db_path=train_db_path, fasttext=True, load_to_memory=False)
     test_dataset = LLMClassifierDataset(db_path=test_db_path, fasttext=True, load_to_memory=False)
     max_words = max(train_dataset.max_words(), test_dataset.max_words())
-    word_length = len(train_dataset[0][0])
+    word_length = len(train_dataset[0][0][0])
+    print(max_words, word_length)
     return LLMClassifierDataLoader(db_path=train_db_path, batch_size=batch_size, max_words=max_words,
                                    training_ratio=training_ratio, use_validation=True, training_set=True, shuffle=True,
                                    fasttext=True, load_to_memory=False), \
@@ -147,12 +158,16 @@ def load_model(max_words: int, word_length: int) -> Model:
 
     Returns:
         The loaded and compiled model.
+
     """
     model = Sequential()
-    model.add(Masking(mask_value=0.0, input_shape=(max_words, word_length)))
-    model.add(LSTM(units=32, activation='tanh', return_sequences=False))
-    model.add(Dense(units=2, activation='softmax'))
+    # model.add(Embedding(input_dim=word_length, output_dim=word_length, input_length=max_words, dtype=np.float32))
+    model.add(Masking(mask_value=0., input_shape=(max_words, word_length), dtype=np.float32))
+    model.add(LSTM(units=word_length, activation='tanh', return_sequences=False, dtype=np.float32))
+    model.add(Dense(units=32, activation='relu', dtype=np.float32))
+    model.add(Dense(units=2, activation='softmax', dtype=np.float32))
     model.compile(optimizer=Adam(learning_rate=0.001), loss=BinaryCrossentropy(), metrics=[BinaryAccuracy()])
+    model.summary()
     return model
 
 
@@ -178,8 +193,8 @@ def train(train_dataloader: LLMClassifierDataLoader, validation_dataloader: LLMC
     ]
     # Loading in the model fitting it to the data.
     model = load_model(max_words, word_length)
-    model.fit(train_dataloader, validation_data=validation_dataloader, epochs=epochs, callbacks=callbacks, workers=1,
-              max_queue_size=1)
+    model.fit(train_dataloader, validation_data=validation_dataloader, epochs=epochs, callbacks=callbacks,
+              workers=cpu_count(), use_multiprocessing=True, max_queue_size=1)
     model.save_weights(filepath=f'../model_weights/{model_name}/weights.h5', save_format='h5')
 
 
@@ -252,4 +267,4 @@ def lstm(epochs: int, batch_size: int) -> None:
 
 
 if __name__ == '__main__':
-    lstm(25, 256)
+    lstm(25, 512)
