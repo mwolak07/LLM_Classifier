@@ -188,12 +188,12 @@ class LLMClassifierDatabase(Sequence):
         # Getting mutable list from the Tuple row.
         values = list(row)
         # Decoding the JSON strings.
-        values[2] = list(json.loads(values[2]))
+        values[2] = list(json.loads(values[2])) if values[2] is not None else None
         # Converting int to boolean.
-        values[6] = bool(values[6])
+        values[6] = bool(values[6]) if values[6] is not None else None
         # Decoding the 2D numpy arrays.
-        values[7] = np.array(json.loads(values[7]))
-        values[8] = np.array(json.loads(values[8]))
+        values[7] = np.array(json.loads(values[7])) if values[7] is not None else None
+        values[8] = np.array(json.loads(values[8])) if values[8] is not None else None
         # Converting to a LLMClassifierRow. Does not include id.
         return LLMClassifierRow(values[1], values[2], values[3], values[4], values[5], values[6], values[7], values[8])
 
