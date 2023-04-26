@@ -12,6 +12,14 @@ src.util.fs\_utils module
    :undoc-members:
    :show-inheritance:
 
+src.util.model\_utils module
+----------------------------
+
+.. automodule:: src.util.model_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 src.util.sys\_utils module
 --------------------------
 

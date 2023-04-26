@@ -35,7 +35,10 @@ This is a list of useful commands. These are to be executed from the project roo
 - Generating the mock ms marco dataset:
   - `$ python -m test.datasets.generate_mock_ms_marco_data.generate_mock_ms_marco_data`
 - Downloading pretrained huggingface models:
-  - `$ python -m src.models.download_huggingface_models`
+  - `$ python -m src.models.download_huggingface_models'
+- View NN training with tensorboard:
+  - `$ tensorboard --logdir=src/logs/<model_name>'
+  - Open localhost:6006 in browser
 
 ## Environment:
 The specs for the env are stored in environment.yml. This makes it easy to use with conda. If you would like to install
@@ -49,6 +52,14 @@ everything manually, the command is:
 Documentation is generated using sphinx. Below are the steps for how to re-generate the documentation.
 
 If you just want to update the docs after modifying code:
+- `$ cd docs`
+- `$ make clean html`
+- `$ make html`
+
+If you changed the file or directory structure:
+- delete docs/src.*
+- delete docs/modules.rst  
+- `$ sphinx-apidoc -o docs src`
 - `$ cd docs`
 - `$ make clean html`
 - `$ make html`

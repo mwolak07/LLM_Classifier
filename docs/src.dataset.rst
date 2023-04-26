@@ -52,6 +52,14 @@ src.dataset.ms\_marco\_dataset module
    :undoc-members:
    :show-inheritance:
 
+src.dataset.split\_database module
+----------------------------------
+
+.. automodule:: src.dataset.split_database
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 
