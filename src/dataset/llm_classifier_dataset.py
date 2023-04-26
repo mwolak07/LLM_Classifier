@@ -367,13 +367,11 @@ def load_fasttext_data(train_file_path: str, test_file_path: str, train_db_path:
     x_train = np.load(train_file_path, allow_pickle=True)
     x_test = np.load(test_file_path, allow_pickle=True)
     # Converting to float16
-    print(f'Converting to float16...')
     for i in range(len(x_train)):
         x_train[i] = x_train[i].astype(np.float16)
     for i in range(len(x_test)):
         x_test[i] = x_test[i].astype(np.float16)
     # Unpacking the data, and converting to numpy
-    print(f'Reformatting data...')
     x_train = [text_vector for text_vector in x_train]
     x_test = [text_vector for text_vector in x_test]
     y_train = np.array(y_train, dtype=np.float16)
@@ -403,7 +401,6 @@ def pad_fasttext_data(x_train: List[ndarray[ndarray[np.float16]]], x_test: List[
         raise ValueError(f'Word vector length mismatch between x_train and x_test! '
                          f'{len(x_train[0][0])} != {len(x_test[0][0])}!')
     # Getting the relevant lengths.
-    print(f'Getting relevant lengths...')
     word_vector_length = len(x_train[0][0])
     train_max_text_len = max([len(text) for text in x_train])
     test_max_text_len = max([len(text) for text in x_test])
@@ -454,7 +451,6 @@ def write_fasttext_data(train_db_path: str, test_db_path: str) -> None:
     print(f'Vectorizing x_test...')
     x_test = fasttext_vectorize(vectorizer, x_test)
     # Writing the train and test feature data directly to disk as numpy arrays.
-    print(f'Converting to ragged arrays...')
     x_train = np.array(x_train, dtype=object)
     x_test = np.array(x_test, dtype=object)
     print(f'Writing train to disk...')
@@ -474,7 +470,6 @@ def fasttext_vectorize(vectorizer: FastText, text_list: ndarray[str]) -> List[nd
     Returns:
         The array of text blocks transformed into vector representations.
     """
-    print(f'Vectorizing words...')
     # Iterating through each word in each block of text.
     output = []
     for i in tqdm(range(len(text_list))):
