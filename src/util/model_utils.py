@@ -40,11 +40,11 @@ class SaveWeightsCallback(Callback):
 
 def get_batches(array: List[Any], batch_size: int) -> List[List[Any]]:
     """
-    Splits the given array into batches of size batch_size..
+    Splits the given array into batches of size batch_size.
 
     Args:
         array: The array to be split into batches.
-        batch_size: The size of each batch of questions we want to be generating.
+        batch_size: The size of each batch we want to be generating.
 
     Returns:
         A list of lists of the datatype of the input array, representing the list of batches.
