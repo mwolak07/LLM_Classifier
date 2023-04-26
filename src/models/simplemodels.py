@@ -72,8 +72,7 @@ def runfasttext(data):
 #where n is number of responses, X1 is number of sentences in response, X2 is word vector
 #result of this should hopefully standardize the number of sent vect per response, 
 #so the array is (n,max_seq_length,gensim.model.vector_size)
-def padInput(data):   
-    max_seq_length = max(len(seq) for seq in data)
+def padInput(data, max_seq_length):   
     print(str(max_seq_length) + "MAXXXXXXXX")
     padData = []
     vecSize = len(data[0][0])
@@ -90,15 +89,15 @@ def padInput(data):
 
 print("database")
 # dbdata = LLMClassifierDataset(db_path="src/models/test_short_prompts.sqlite3", load_to_memory=False)
-x_train, x_test, y_train, y_test = load_data("FILL ME IN", "FILL ME IN")
-x_train = runfasttext(x_train)
-y_train = runfasttext(y_train)
-x_test = runfasttext(x_test)
-y_test = runfasttext(y_test)
-trainData = padInput(x_train)
-trainLabels = padInput(y_train)
-testData = padInput(x_test)
-testLabels = padInput(y_test)
+
+trainData, testData, trainLabels, testLabels = load_data("FILL ME IN", "FILL ME IN")
+maxV = max(max(len(seq) for seq in trainData), max(len(seq) for seq in testData))
+trainData = runfasttext(trainData)
+testData = runfasttext(testData)
+trainData = padInput(trainData,maxV)
+testData = padInput(testData,maxV)
+
+
 # dbdata = dbdata.tolist()
 
 print("dbdata is ready")
@@ -114,7 +113,7 @@ print("dbdata is ready")
 
 # allData = runfasttext(allData)
 # allData = np.array(padInput(allData))
-print("train test split")
+# print("train test split")
 # p = np.random.permutation(len(allData))
 # allData = allData[p]
 # allLabels = allLabels[p]
