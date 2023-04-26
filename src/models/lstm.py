@@ -267,11 +267,6 @@ def lstm(epochs: int, batch_size: int) -> None:
     # train(train_dataloader=train_dataloader, validation_dataloader=validation_dataloader, model_name=model_name,
     #       max_words=max_words, word_length=word_length, epochs=epochs)
     print(f'Testing model...')
-    test_db_path = '../../data/bloom_1_1B/dev_v2.1_short_prompts_small.sqlite3'
-    test_dataloader = \
-        LLMClassifierDataLoader(db_path=test_db_path, batch_size=batch_size, max_words=max_words,
-                                training_ratio=0.9, use_validation=False, training_set=True, shuffle=True,
-                                fasttext=True, load_to_memory=False)
     test(test_dataloader=test_dataloader, model_name=model_name, max_words=max_words, word_length=word_length)
 
 
