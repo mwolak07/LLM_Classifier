@@ -1,6 +1,12 @@
 # LLM Classifier
 This repo contains the code for a large language model (LLM) output classification project. The goal is to investigate ways of classifying if a piece of text comes from a human, or a large language model. This is our final project for CS 4400 at NEU for the spring 2023 semester.
 
+## Directory map:
+- data: contains all of the data, large files not uploaded to github.
+  - bloom_
+  - MS_MARCO: contains the MS MARCO human data.
+  - fasttext: contains the pre-trained fasttext data.
+
 ## Viewing the docs:
 Open the index.html file for the docs. This is under: docs/_build/html/index.html
 
