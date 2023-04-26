@@ -162,10 +162,9 @@ def load_model(max_words: int, word_length: int) -> Model:
 
     """
     model = Sequential()
-    # model.add(Embedding(input_dim=word_length, output_dim=word_length, input_length=max_words, dtype=np.float32))
     model.add(Masking(mask_value=0., input_shape=(max_words, word_length), dtype=np.float32))
-    model.add(LSTM(units=150, activation='tanh', return_sequences=False, dtype=np.float32))
-    model.add(Dense(units=50, activation='relu', dtype=np.float32))
+    model.add(LSTM(units=word_length, activation='tanh', return_sequences=False, dtype=np.float32))
+    model.add(Dense(units=32, activation='relu', dtype=np.float32))
     model.add(Dense(units=2, activation='softmax', dtype=np.float32))
     model.compile(optimizer=Adam(learning_rate=0.001), loss=BinaryCrossentropy(), metrics=[BinaryAccuracy()])
     model.summary()
