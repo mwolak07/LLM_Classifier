@@ -11,6 +11,7 @@ from sklearn import metrics
 from numpy import ndarray
 import numpy as np
 import random
+import math
 import os
 from src.util import Feature, SaveWeightsCallback, get_batches, fasttext_pad, cd_to_executing_file
 from src.dataset import LLMClassifierDataset
@@ -163,8 +164,8 @@ def load_model(max_words: int, word_length: int) -> Model:
     model = Sequential()
     # model.add(Embedding(input_dim=word_length, output_dim=word_length, input_length=max_words, dtype=np.float32))
     model.add(Masking(mask_value=0., input_shape=(max_words, word_length), dtype=np.float32))
-    model.add(LSTM(units=word_length, activation='tanh', return_sequences=False, dtype=np.float32))
-    model.add(Dense(units=32, activation='relu', dtype=np.float32))
+    model.add(LSTM(units=150, activation='tanh', return_sequences=False, dtype=np.float32))
+    model.add(Dense(units=50, activation='relu', dtype=np.float32))
     model.add(Dense(units=2, activation='softmax', dtype=np.float32))
     model.compile(optimizer=Adam(learning_rate=0.001), loss=BinaryCrossentropy(), metrics=[BinaryAccuracy()])
     model.summary()
@@ -191,10 +192,14 @@ def train(train_dataloader: LLMClassifierDataLoader, validation_dataloader: LLMC
         SaveWeightsCallback(filepath=f'../model_weights/{model_name}/weights.h5',
                             save_format='h5', verbose=False)
     ]
+    # Calculating the number of workers such that all will have a batch on the validation set, to a maximum of the
+    # number of cores.
+    workers = min(len(validation_dataloader), cpu_count())
+    print(f'Loading data with {workers} cores')
     # Loading in the model fitting it to the data.
     model = load_model(max_words, word_length)
     model.fit(train_dataloader, validation_data=validation_dataloader, epochs=epochs, callbacks=callbacks,
-              workers=cpu_count(), use_multiprocessing=True, max_queue_size=1)
+              workers=workers, use_multiprocessing=True, max_queue_size=1)
     model.save_weights(filepath=f'../model_weights/{model_name}/weights.h5', save_format='h5')
 
 
