@@ -34,7 +34,7 @@ def train(model: SGDClassifier, dataset: LLMClassifierDataset, max_words: int, b
         The model after training, with the learned weights.
     """
     # Constructing our batch indexes.
-    indexes = range(len(dataset))
+    indexes = list(range(len(dataset)))
     index_batches = get_batches(indexes, batch_size)
     for i in tqdm(range(len(index_batches))):
         # Constructing our batch.
@@ -65,7 +65,7 @@ def test(model: SGDClassifier, dataset: LLMClassifierDataset, max_words: int, ba
     # Getting the predictions in batches.
     predictions = np.array([])
     # Constructing our batch indexes.
-    indexes = range(len(dataset))
+    indexes = list(range(len(dataset)))
     index_batches = get_batches(indexes, batch_size)
     for i in tqdm(range(len(index_batches))):
         # Constructing our batch.

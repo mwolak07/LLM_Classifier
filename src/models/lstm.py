@@ -54,7 +54,7 @@ class LLMClassifierDataLoader(Sequence):
         self.max_words = max_words
         self.shuffle = shuffle
         self._dataset = LLMClassifierDataset(db_path, fasttext, load_to_memory)
-        self._indexes = range(len(self.dataset))
+        self._indexes = list(range(len(self._dataset)))
         # Shuffling the indexes if needed.
         if shuffle:
             random.shuffle(self._indexes)
