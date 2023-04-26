@@ -459,23 +459,19 @@ def write_fasttext_data(train_db_path: str, test_db_path: str) -> None:
     np.save(test_file_path, x_test, allow_pickle=True)
 
 
-def fasttext_vectorize(vectorizer: FastText, text_list: ndarray[str]) -> List[ndarray[ndarray[float]]]:
+def fasttext_vectorize(vectorizer: FastText, text: str) -> ndarray[ndarray[float]]:
     """
-    Applies the pre-trained fasttext vectorizer as efficiently as possible to the given list of strings.
+    Applies the pre-trained fasttext vectorizer as efficiently as possible to given string.
 
     Args:
-        vectorizer: The vectorizer to apply to the text_list.
-        text_list: The list of blocks of text to be transformed into lists of vectors using the fasttext vectorizer.
+        vectorizer: The vectorizer to apply to the text.
+        text: The block of text, consisting of multiple words, to give to the vectorizer.
 
     Returns:
         The array of text blocks transformed into vector representations.
     """
     # Iterating through each word in each block of text.
     output = []
-    for i in tqdm(range(len(text_list))):
-        text = text_list[i]
-        text_vectors = []
-        for word in text.split(' '):
-            text_vectors.append(vectorizer.wv[word])
-        output.append(np.array(text_vectors))
-    return output
+    for word in text.split(' '):
+        output.append(vectorizer.wv[word])
+    return np.array(output)
